@@ -206,7 +206,7 @@ function drpNav(dir) {
     // Buat profile baru kalau belum ada
     const meta = currentUser.user_metadata || {};
     currentProfile = { id: currentUser.id, nama: meta.nama || currentUser.email, no_wa: meta.no_wa || '', email: currentUser.email };
-    await sb.from('cs_profiles').upsert(currentProfile);
+    await sb.from('crm_profiles').upsert(currentProfile);
   }
 
   // Topbar & avatar

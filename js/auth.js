@@ -22,7 +22,7 @@ async function signUp(email, password, nama, noWA) {
 
   // Buat profile row
   if (data.user) {
-    await sb.from('cs_profiles').upsert({
+    await sb.from('crm_profiles').upsert({
       id: data.user.id,
       nama,
       no_wa: noWA,
@@ -62,13 +62,13 @@ async function requireAuth() {
 
 // ── PROFILE ───────────────────────────────────────────────────────────────────
 async function getProfile(userId) {
-  const { data, error } = await sb.from('cs_profiles').select('*').eq('id', userId).single();
+  const { data, error } = await sb.from('crm_profiles').select('*').eq('id', userId).single();
   if (error) return null;
   return data;
 }
 
 async function updateProfile(userId, updates) {
-  const { error } = await sb.from('cs_profiles').update(updates).eq('id', userId);
+  const { error } = await sb.from('crm_profiles').update(updates).eq('id', userId);
   if (error) throw error;
 }
 
@@ -97,7 +97,7 @@ function hpVariants(hp) {
 // Jalankan SQL ini di Supabase SQL Editor sebelum pertama kali digunakan:
 //
 // -- Tabel profil CS
-// CREATE TABLE IF NOT EXISTS cs_profiles (
+// CREATE TABLE IF NOT EXISTS crm_profiles (
 //   id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
 //   nama text NOT NULL,
 //   no_wa text DEFAULT '',
@@ -106,15 +106,15 @@ function hpVariants(hp) {
 //   created_at timestamptz DEFAULT now(),
 //   updated_at timestamptz DEFAULT now()
 // );
-// ALTER TABLE cs_profiles ENABLE ROW LEVEL SECURITY;
-// CREATE POLICY "cs_own_profile" ON cs_profiles FOR ALL USING (auth.uid() = id);
+// ALTER TABLE crm_profiles ENABLE ROW LEVEL SECURITY;
+// CREATE POLICY "cs_own_profile" ON crm_profiles FOR ALL USING (auth.uid() = id);
 //
 // -- Tabel orderan dari CS
 // CREATE TABLE IF NOT EXISTS orderan_masuk_crm (
 //   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
 //   created_at timestamptz DEFAULT now(),
 //   tanggal date DEFAULT CURRENT_DATE,
-//   cs_id uuid REFERENCES cs_profiles(id),
+//   cs_id uuid REFERENCES crm_profiles(id),
 //   cs_nama text,
 //   no text, nama text, hp text, alamat text,
 //   kelurahan text, kecamatan text, kabupaten text, provinsi text, kodepos text,
