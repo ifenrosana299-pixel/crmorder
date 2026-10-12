@@ -2267,7 +2267,7 @@ async function loadOverview() {
   try {
     // Fetch parallel: semua users + semua order hari ini
     const [usersRes, ordersRes] = await Promise.all([
-      sb.from('cs_profiles').select('id, nama, role'),
+      sb.from('crm_profiles').select('id, nama, role'),
       sb.from('orderan_masuk_crm')
         .select('id, cs_id, cs_nama, acc_spv, is_dup_today, is_dup_all, is_rts, created_at')
         .eq('tanggal', today)
@@ -2343,7 +2343,7 @@ async function loadUsers() {
 
   try {
     const [usersRes, ordersRes] = await Promise.all([
-      sb.from('cs_profiles').select('*').order('created_at', { ascending: true }),
+      sb.from('crm_profiles').select('*').order('created_at', { ascending: true }),
       sb.from('orderan_masuk_crm').select('cs_id').eq('tanggal', today)
     ]);
 
@@ -2445,7 +2445,7 @@ async function changeRole(userId, newRole) {
     return;
   }
   try {
-    const { error } = await sb.from('cs_profiles')
+    const { error } = await sb.from('crm_profiles')
       .update({ role: newRole })
       .eq('id', userId);
     if (error) throw error;
@@ -3831,10 +3831,10 @@ async function loadAdminDash() {
   });
 
   try {
-    // Pagination loop + cs_profiles parallel
+    // Pagination loop + crm_profiles parallel
     const PAGE = 1000;
     const [csRes] = await Promise.all([
-      sb.from('cs_profiles').select('id,nama').order('nama')
+      sb.from('crm_profiles').select('id,nama').order('nama')
     ]);
 
     let allOrders = [], from = 0;
