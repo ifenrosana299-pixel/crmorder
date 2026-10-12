@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>CRM Adsy</title>
+<link rel="icon" type="image/png" href="img/logo-adsy.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/auth.js"></script>
+</head>
+<body class="app-body">
+
+<!-- ── SIDEBAR (desktop) ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div style="display:flex;align-items:center;gap:8px">
+      <img src="img/logo-adsy.png" alt="Adsy" style="width:28px;height:28px;object-fit:contain">
+      <div>
+        <div class="logo-mark">CRM Adsy</div>
+        <div class="logo-sub">sistem input orderan</div>
+      </div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Menu</div>
+    <div class="nav-item active" id="nav-dashboard" onclick="switchPage('dashboard')">
+      <span class="nav-icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" id="nav-upload" onclick="switchPage('upload')">
+      <span class="nav-icon">📝</span> Upload Order
+    </div>
+    <div class="nav-item" id="nav-tracking" onclick="switchPage('tracking')">
+      <span class="nav-icon">📦</span> Tracking Order
+    </div>
+    <div class="nav-item" id="nav-ongkir" onclick="switchPage('ongkir')">
+      <span class="nav-icon">🚚</span> Cek Ongkir
+    </div>
+    <div class="nav-section">Akun</div>
+    <div class="nav-item" id="nav-setting" onclick="switchPage('setting')">
+      <span class="nav-icon">⚙️</span> Setting
+    </div>
+    <div class="nav-item" id="nav-admin" onclick="window.location.href='admin.html'" style="display:none">
+      <span class="nav-icon">🛠️</span> Admin Panel
+    </div>
+  </nav>
+  <div class="sidebar-user">
+    <div class="theme-toggle" onclick="toggleDark()">
+      <span id="theme-icon">🌙</span>
+      <span id="theme-label">Gelap</span>
+    </div>
+    <div class="user-card">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div class="user-info">
+        <div class="user-name" id="user-nama">—</div>
+        <div class="user-role">Customer Service</div>
+      </div>
+      <button class="btn-logout" onclick="signOut()" title="Keluar">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN AREA ── -->
+<div class="main-area">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">Dashboard</div>
+    <div class="topbar-right">
+      <span id="topbar-date" class="topbar-date-desktop" style="font-size:11px;color:var(--muted);font-family:var(--mono)"></span>
+      <!-- Mobile: avatar + dark toggle -->
+      <div class="mobile-user-btn" onclick="toggleDark()" title="Ganti tema">
+        <span id="theme-icon-mobile">🌙</span>
+      </div>
+      <div class="mobile-user-btn" style="margin-left:4px">
+        <div class="mobile-avatar" id="mobile-avatar">?</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       PAGE: DASHBOARD
+  ═══════════════════════════════════════ -->
+  <div class="page active" id="page-dashboard">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+      <div>
+        <div class="page-title" style="margin-bottom:2px">Dashboard</div>
+        <div class="page-sub" id="dash-sub" style="margin:0">Orderan kamu hari ini</div>
+      </div>
+      <!-- Date Range Picker -->
+      <div style="position:relative" id="drp-wrap">
+        <button class="drp-trigger" onclick="drpToggle()" id="drp-trigger">
+          <span>📅</span>
+          <span id="drp-label">Hari Ini</span>
+          <span style="color:var(--muted)">▾</span>
+        </button>
+        <div class="drp-dropdown" id="drp-dropdown">
+          <div class="drp-presets" style="width:145px;flex-shrink:0;border-right:1px solid var(--border);padding:10px 0">
+            <button class="drp-preset active" onclick="drpPreset(1,'Hari Ini',this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--accent);font-weight:600">Hari Ini</button>
+            <button class="drp-preset" onclick="drpPresetYesterday(this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">Kemarin</button>
+            <hr style="border:none;border-top:1px solid var(--border);margin:6px 0">
+            <button class="drp-preset" onclick="drpPreset(7,'7 Hari Terakhir',this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">7 Hari Terakhir</button>
+            <button class="drp-preset" onclick="drpPreset(14,'14 Hari Terakhir',this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">14 Hari Terakhir</button>
+            <button class="drp-preset" onclick="drpPreset(30,'30 Hari Terakhir',this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">30 Hari Terakhir</button>
+            <hr style="border:none;border-top:1px solid var(--border);margin:6px 0">
+            <button class="drp-preset" onclick="drpPresetThisMonth(this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">Bulan Ini</button>
+            <button class="drp-preset" onclick="drpPresetLastMonth(this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">Bulan Lalu</button>
+          </div>
+          <div style="display:flex;flex-direction:column;flex:1;min-width:280px">
+            <div class="drp-cal" id="drp-cal" style="padding:14px;flex:1"></div>
+            <div class="drp-footer" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--muted)">
+                <span id="drp-sel-start">—</span> → <span id="drp-sel-end">—</span>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="drp-cancel" onclick="drpClose()">Batal</button>
+                <button class="drp-apply" onclick="drpApply()">Terapkan</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alert banner: order Bermasalah/Retur -->
+    <div id="dash-alerts"></div>
+
+    <!-- Summary cards -->
+    <div class="sum-grid">
+      <div class="sum-card">
+        <div class="s-label">Total</div>
+        <div class="s-value s-total" id="d-total">—</div>
+      </div>
+      <div class="sum-card">
+        <div class="s-label">Menunggu</div>
+        <div class="s-value s-tunggu" id="d-tunggu">—</div>
+      </div>
+      <div class="sum-card">
+        <div class="s-label">Kirim</div>
+        <div class="s-value s-kirim" id="d-kirim">—</div>
+      </div>
+      <div class="sum-card">
+        <div class="s-label">Hold</div>
+        <div class="s-value s-hold" id="d-hold">—</div>
+      </div>
+      <div class="sum-card">
+        <div class="s-label">Cancel</div>
+        <div class="s-value s-cancel" id="d-cancel">—</div>
+      </div>
+    </div>
+
+    <!-- Desktop: table view -->
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Waktu</th>
+              <th>Nama Customer</th>
+              <th>No HP</th>
+              <th>Jumlah Pesanan</th>
+              <th>Pembayaran</th>
+              <th>Total</th>
+              <th>Validasi</th>
+              <th>Grade</th>
+              <th>ACC SPV</th>
+              <th>Noted</th>
+              <th>Bukti SS</th>
+            </tr>
+          </thead>
+          <tbody id="dash-tbody">
+            <tr><td colspan="12" class="empty-state">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:10px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono);display:flex;justify-content:space-between;align-items:center">
+        <span id="dash-info">—</span>
+        <button class="btn-secondary" onclick="loadDashboard()" style="font-size:11px;padding:5px 10px">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <!-- Mobile: card view -->
+    <div class="order-cards-wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span id="dash-info-mobile" style="font-size:12px;color:var(--muted);font-family:var(--mono)">—</span>
+        <button class="btn-secondary" onclick="loadDashboard()" style="font-size:12px;padding:7px 12px">🔄 Refresh</button>
+      </div>
+      <div class="order-cards" id="order-cards">
+        <div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px">Memuat data...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       PAGE: UPLOAD ORDER
+  ═══════════════════════════════════════ -->
+  <div class="page" id="page-upload">
+    <div class="page-title">Upload Order</div>
+    <div class="page-sub">Paste teks orderan → AI parsing → submit</div>
+
+    <!-- Lock Banner 08:00–09:00 -->
+    <div id="upload-lock-banner" style="display:none;align-items:center;gap:14px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:12px;padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:28px">🔒</div>
+      <div>
+        <div style="font-weight:700;color:#92400e;font-size:14px">Upload Order Ditutup Sementara</div>
+        <div style="font-size:12px;color:#b45309;margin-top:3px">Sistem tutup pukul <strong>08.00 – 09.00 WIB</strong> untuk proses rekap harian.</div>
+        <div style="font-size:12px;color:#b45309;margin-top:2px">Buka kembali dalam <strong id="lock-countdown">—</strong></div>
+      </div>
+    </div>
+
+    <!-- Pilih Gudang -->
+    <div class="card" style="padding:14px 18px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:600;color:var(--text-secondary);white-space:nowrap">📦 Gudang Pengirim</span>
+        <select class="f-input" id="sel-gudang" onchange="onGudangChange(this.value)"
+          style="flex:1;min-width:160px;max-width:280px;margin:0;padding:7px 10px;font-size:13px">
+          <option value="">Memuat...</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Step 1: Paste -->
+    <div class="card">
+      <div class="card-title">1. Paste Teks Orderan</div>
+      <div class="card-desc">Copy dari WA lalu paste di sini. AI akan otomatis ekstrak semua field.</div>
+      <textarea class="paste-area" id="paste-input"
+        placeholder="Paste teks orderan di sini...
+
+Contoh:
+No 57 JNE - GUDANG KRANGGAN
+BUDI SANTOSO|HRB 1|TF
+081234567890
+JANGAN DIRETUR BARANG PENTING JL MAWAR NO 12 RT 03/04|
+KELURAHAN SUKAMAJU
+KECAMATAN CIBIRU
+KABUPATEN BANDUNG
+JAWA BARAT
+40615
+2 BOTOL NEW HERBAPIL
+COD JNE REG=250000
+Pengirim CS Rama/Adv.Fajar|13000|0|5000|0|230000
+Keterangan: Bonus masker"></textarea>
+      <div class="parse-actions">
+        <button class="btn-parse" id="btn-parse" onclick="doParse()">✨ Parse dengan AI</button>
+        <button class="btn-secondary" onclick="clearPaste()">Bersihkan</button>
+        <span class="loading-txt" id="loading-parse">AI sedang memproses...</span>
+      </div>
+    </div>
+
+    <!-- Step 2: Preview & Edit -->
+    <div class="card preview-card" id="preview-card">
+      <div class="card-title">2. Periksa & Edit Hasil</div>
+      <div class="card-desc">Pastikan semua data sudah benar. Kamu bisa edit langsung.</div>
+
+      <!-- Baris 1: No & Nama -->
+      <div class="form-grid" style="margin-bottom:10px">
+        <div class="f-group">
+          <label class="f-label">No Order</label>
+          <input class="f-input" id="f-no" type="text" placeholder="No order" />
+          <div class="val-hint" id="hint-no"></div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Nama Customer</label>
+          <input class="f-input" id="f-nama" type="text" placeholder="Nama lengkap" />
+          <div class="val-hint" id="hint-nama"></div>
+        </div>
+      </div>
+
+      <!-- Baris 2: HP & Pembayaran -->
+      <div class="form-grid" style="margin-bottom:10px">
+        <div class="f-group">
+          <label class="f-label">No HP</label>
+          <input class="f-input" id="f-hp" type="tel" placeholder="08xxxxxxxxxx" />
+          <div class="val-hint" id="hint-hp"></div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Pembayaran</label>
+          <input class="f-input" id="f-pembayaran" type="text" placeholder="COD JNE / TRANSFER" />
+          <div class="val-hint" id="hint-pembayaran"></div>
+        </div>
+      </div>
+
+      <!-- Alamat -->
+      <div class="form-grid cols-1" style="margin-bottom:10px">
+        <div class="f-group">
+          <label class="f-label">Alamat</label>
+          <input class="f-input" id="f-alamat" type="text" placeholder="Alamat lengkap" />
+        </div>
+      </div>
+
+      <!-- Wilayah -->
+      <div class="form-grid cols-3" style="margin-bottom:10px">
+        <div class="f-group">
+          <label class="f-label">Kelurahan</label>
+          <input class="f-input" id="f-kelurahan" type="text" />
+          <div class="val-hint" id="hint-kelurahan"></div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Kecamatan</label>
+          <input class="f-input" id="f-kecamatan" type="text" />
+          <div class="val-hint" id="hint-kecamatan"></div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Kabupaten</label>
+          <input class="f-input" id="f-kabupaten" type="text" />
+          <div class="val-hint" id="hint-kabupaten"></div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Provinsi</label>
+          <input class="f-input" id="f-provinsi" type="text" />
+          <div class="val-hint" id="hint-provinsi"></div>
+        </div>
+
+        <div id="wilayah-lapor-box" style="display:none;grid-column:span 2;align-self:end;padding-bottom:2px"></div>
+
+        <div class="f-group">
+          <label class="f-label">Kode Pos</label>
+          <input class="f-input" id="f-kodepos" type="text" inputmode="numeric" />
+          <div class="val-hint" id="hint-kodepos"></div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Qty</label>
+          <input class="f-input" id="f-quantity" type="text" inputmode="numeric" />
+        </div>
+      </div>
+
+      <!-- Detail order -->
+      <div class="form-grid" style="margin-bottom:10px">
+        <div class="f-group">
+          <label class="f-label">Jumlah Pesanan</label>
+          <input class="f-input" id="f-jumlah" type="text" placeholder="2 BOTOL NEW HERBAPIL" />
+          <div class="val-hint" id="hint-jumlah"></div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Total Pembayaran</label>
+          <input class="f-input" id="f-total" type="text" inputmode="numeric" placeholder="250000" />
+          <div class="val-hint" id="hint-total"></div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Instruksi Pengiriman</label>
+          <input class="f-input" id="f-instruksi" type="text" placeholder="Pengirim CS Rama/..." />
+        </div>
+        <div class="f-group">
+          <label class="f-label">Rincian Pembayaran</label>
+          <input class="f-input" id="f-rincian" type="text" placeholder="13000|0|5000|0|230000" />
+          <div class="val-hint" id="hint-rincian"></div>
+          <div class="val-hint" id="hint-ongkir-check"></div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Keterangan</label>
+          <input class="f-input" id="f-keterangan" type="text" placeholder="Catatan" />
+          <div class="val-hint" id="hint-keterangan"></div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Keluhan</label>
+          <input class="f-input" id="f-keluhan" type="text" placeholder="Keluhan customer (jika ada)" />
+        </div>
+      </div>
+
+      <!-- Hasil validasi -->
+      <div class="val-banner" id="val-banner"></div>
+
+      <div class="submit-row">
+        <button class="btn-submit" id="btn-submit" onclick="doSubmit()" disabled>✅ Submit Order</button>
+        <button class="btn-secondary" onclick="clearPaste()">↩ Ulangi</button>
+        <span class="loading-txt" id="loading-submit">Menyimpan & validasi...</span>
+      </div>
+    </div>
+
+    <!-- Mini history hari ini -->
+    <div class="card" id="history-card" style="display:none">
+      <div class="card-title">Order Masuk Hari Ini</div>
+      <div class="history-list" id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       PAGE: SETTING
+  ═══════════════════════════════════════ -->
+  <div class="page" id="page-setting">
+    <div class="page-title">Setting</div>
+    <div class="page-sub">Kelola profil dan akun kamu</div>
+
+    <div class="setting-grid">
+      <!-- Profil -->
+      <div class="card">
+        <div class="card-title">Profil Saya</div>
+        <div class="card-desc">Nama dan nomor WA digunakan untuk notifikasi order bermasalah</div>
+        <div class="setting-field">
+          <label class="setting-label">Nama Lengkap</label>
+          <input class="setting-input" id="s-nama" type="text" placeholder="Nama kamu" />
+        </div>
+        <div class="setting-field">
+          <label class="setting-label">No WhatsApp</label>
+          <input class="setting-input" id="s-wa" type="tel" placeholder="08xxxxxxxxxx" inputmode="tel" />
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Notifikasi otomatis dikirim ke sini saat order terdeteksi masalah</div>
+        </div>
+        <div class="setting-field">
+          <label class="setting-label">Email</label>
+          <input class="setting-input" id="s-email" type="email" disabled style="opacity:0.5;cursor:not-allowed" />
+        </div>
+        <button class="btn-save" onclick="saveProfil()">Simpan Profil</button>
+        <div id="profil-status" style="font-size:12px;margin-top:8px;display:none;padding:6px 10px;border-radius:6px"></div>
+      </div>
+
+      <!-- Ganti Password -->
+      <div class="card">
+        <div class="card-title">Ganti Password</div>
+        <div class="card-desc">Perbarui password login kamu</div>
+        <div class="setting-field">
+          <label class="setting-label">Password Baru</label>
+          <input class="setting-input" id="s-pass" type="password" placeholder="min 6 karakter" />
+        </div>
+        <div class="setting-field">
+          <label class="setting-label">Konfirmasi Password</label>
+          <input class="setting-input" id="s-pass2" type="password" placeholder="ulangi password baru" />
+        </div>
+        <button class="btn-save" onclick="savePassword()">Ganti Password</button>
+        <div id="pass-status" style="font-size:12px;margin-top:8px;display:none;padding:6px 10px;border-radius:6px"></div>
+      </div>
+    </div>
+
+    <!-- Gmail -->
+    <div class="card" id="gmail-card">
+      <div class="card-title">Koneksi Gmail</div>
+      <div class="card-desc">Hubungkan Gmail CS untuk verifikasi klik iklan saat ada duplikat all team</div>
+      <div id="gmail-status-wrap" style="margin:12px 0;padding:10px 12px;border-radius:8px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;gap:10px">
+        <div id="gmail-status-dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0"></div>
+        <div>
+          <div id="gmail-status-label" style="font-size:13px;font-weight:600;color:var(--text)">Memuat...</div>
+          <div id="gmail-status-email" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-save" id="gmail-connect-btn" onclick="gmailConnect()" style="display:none">Hubungkan Gmail</button>
+        <button class="btn-secondary" id="gmail-disconnect-btn" onclick="gmailDisconnect()" style="display:none;color:var(--danger);border-color:var(--danger)">Putus Koneksi</button>
+      </div>
+      <div id="gmail-action-status" style="font-size:12px;margin-top:8px;display:none;padding:6px 10px;border-radius:6px"></div>
+    </div>
+
+    <!-- Info Akun -->
+    <div class="card">
+      <div class="card-title">Info Akun</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:var(--muted)">Email</span>
+          <span id="info-email" style="font-size:12px;font-family:var(--mono)">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:var(--muted)">Bergabung</span>
+          <span id="info-join" style="font-size:12px;font-family:var(--mono)">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:var(--muted)">Order hari ini</span>
+          <span id="info-today" style="font-size:13px;font-weight:700;color:var(--accent)">—</span>
+        </div>
+      </div>
+      <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+        <button class="btn-secondary" onclick="signOut()" style="color:var(--danger);border-color:var(--danger);width:100%;text-align:center;padding:11px">Keluar / Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       PAGE: TRACKING ORDER
+  ═══════════════════════════════════════ -->
+  <div class="page" id="page-tracking">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+      <div>
+        <div class="page-title" style="margin-bottom:2px">Tracking Order</div>
+        <div class="page-sub" style="margin:0">Status pengiriman orderan kamu</div>
+      </div>
+      <!-- Date Range Picker -->
+      <div style="position:relative" id="trk-drp-wrap">
+        <button class="drp-trigger" onclick="trkDrpToggle()" id="trk-drp-trigger">
+          <span>📅</span>
+          <span id="trk-drp-label">30 Hari Terakhir</span>
+          <span style="color:var(--muted)">▾</span>
+        </button>
+        <div class="drp-dropdown" id="trk-drp-dropdown">
+          <div class="drp-presets" style="width:145px;flex-shrink:0;border-right:1px solid var(--border);padding:10px 0">
+            <button class="trk-drp-preset" onclick="trkDrpPreset(1,'Hari Ini',this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">Hari Ini</button>
+            <button class="trk-drp-preset" onclick="trkDrpPresetYesterday(this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">Kemarin</button>
+            <hr style="border:none;border-top:1px solid var(--border);margin:6px 0">
+            <button class="trk-drp-preset" onclick="trkDrpPreset(7,'7 Hari Terakhir',this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">7 Hari Terakhir</button>
+            <button class="trk-drp-preset" onclick="trkDrpPreset(14,'14 Hari Terakhir',this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">14 Hari Terakhir</button>
+            <button class="trk-drp-preset active" onclick="trkDrpPreset(30,'30 Hari Terakhir',this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--accent);font-weight:600">30 Hari Terakhir</button>
+            <hr style="border:none;border-top:1px solid var(--border);margin:6px 0">
+            <button class="trk-drp-preset" onclick="trkDrpPresetThisMonth(this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">Bulan Ini</button>
+            <button class="trk-drp-preset" onclick="trkDrpPresetLastMonth(this)" style="display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--muted)">Bulan Lalu</button>
+          </div>
+          <div style="display:flex;flex-direction:column;flex:1;min-width:280px">
+            <div class="drp-cal" id="trk-drp-cal" style="padding:14px;flex:1"></div>
+            <div class="drp-footer" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--muted)">
+                <span id="trk-drp-sel-start">—</span> → <span id="trk-drp-sel-end">—</span>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="drp-cancel" onclick="trkDrpClose()">Batal</button>
+                <button class="drp-apply" onclick="trkDrpApply()">Terapkan</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary cards (klik buat filter, sama kaya CRM) -->
+    <div class="sum-grid" style="margin-top:12px;margin-bottom:12px">
+      <div class="sum-card tr-stat-clickable" id="trk-stat-SEMUA" onclick="trSetFilter('SEMUA')">
+        <div class="s-label">Total Kiriman</div>
+        <div class="s-value s-total" id="trk-total">—</div>
+      </div>
+      <div class="sum-card tr-stat-clickable" id="trk-stat-ON_PROSES" onclick="trSetFilter('ON_PROSES_GROUP')">
+        <div class="s-label">On Proses</div>
+        <div class="s-value s-tunggu" id="trk-proses">—</div>
+      </div>
+      <div class="sum-card tr-stat-clickable" id="trk-stat-BERMASALAH" onclick="trSetFilter('BERMASALAH')">
+        <div class="s-label">Undell</div>
+        <div class="s-value" style="color:#d97706" id="trk-undell">—</div>
+      </div>
+      <div class="sum-card tr-stat-clickable" id="trk-stat-SAMPAI" onclick="trSetFilter('SAMPAI')">
+        <div class="s-label">Delivered</div>
+        <div class="s-value s-kirim" id="trk-delivered">—</div>
+      </div>
+      <div class="sum-card tr-stat-clickable" id="trk-stat-RETUR" onclick="trSetFilter('RETUR')">
+        <div class="s-label">Retur</div>
+        <div class="s-value s-cancel" id="trk-retur">—</div>
+      </div>
+    </div>
+
+    <!-- Alert banners -->
+    <div id="trk-alerts"></div>
+
+    <!-- Tabs status (sama kaya CRM) -->
+    <div class="tr-tabs" id="trk-tabs"></div>
+
+    <!-- Filters -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <select id="trk-filter-eks" class="trk-select" onchange="applyTrkFilter()">
+        <option value="">Semua Ekspedisi</option>
+        <option value="JNE">JNE</option>
+        <option value="JNT">J&amp;T</option>
+        <option value="SiCepat">SiCepat</option>
+        <option value="Anteraja">Anteraja</option>
+        <option value="Ninja">Ninja</option>
+        <option value="Lion">Lion</option>
+        <option value="TIKI">TIKI</option>
+        <option value="SAP">SAP</option>
+      </select>
+      <input type="text" id="trk-search" class="trk-search" placeholder="🔍 Cari nama / HP / resi..." oninput="applyTrkFilter()">
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <span id="trk-info" style="font-size:12px;color:var(--muted);font-family:var(--mono);align-self:center;white-space:nowrap">—</span>
+        <button class="btn-secondary" id="trk-refresh-all-btn" onclick="trRefreshAll()" style="font-size:12px;padding:7px 12px">📡 Refresh Semua</button>
+        <button class="btn-secondary" onclick="loadTracking()" style="font-size:12px;padding:7px 12px">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <!-- List (grid card, sama buat desktop & mobile) -->
+    <div id="trk-cards" class="trk-grid"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       PAGE: CEK ONGKIR
+  ═══════════════════════════════════════ -->
+  <div class="page" id="page-ongkir">
+    <div class="page-title">Cek Ongkir</div>
+    <div class="page-sub">Estimasi ongkir semua ekspedisi dari gudang ke alamat customer</div>
+
+    <div class="card">
+      <div class="card-title">Cari Tujuan</div>
+      <div class="form-grid" style="margin-bottom:10px">
+        <div class="f-group">
+          <label class="f-label">Gudang Pengirim</label>
+          <select class="f-input" id="sel-gudang-ongkir" onchange="onGudangChange(this.value)">
+            <option value="">Memuat...</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid cols-1" style="margin-bottom:10px">
+        <div class="f-group" style="position:relative">
+          <label class="f-label">Alamat Tujuan</label>
+          <input class="f-input" id="ongkir-search" type="text" autocomplete="off"
+                 placeholder="Ketik kecamatan / kabupaten / kelurahan..." />
+          <div class="ongkir-suggest-box" id="ongkir-suggest" style="display:none"></div>
+        </div>
+      </div>
+      <div class="form-grid" style="margin-bottom:10px">
+        <div class="f-group">
+          <label class="f-label">Berat (kg)</label>
+          <input class="f-input" id="ongkir-berat" type="text" inputmode="decimal" value="1" />
+        </div>
+      </div>
+      <div class="parse-actions">
+        <button class="btn-parse" id="btn-cek-ongkir" onclick="doCekOngkir()">🔍 Cek Ongkir</button>
+        <span class="loading-txt" id="loading-ongkir">Mengambil estimasi...</span>
+      </div>
+      <div id="ongkir-error" style="display:none;margin-top:10px;font-size:12px;color:#ef4444"></div>
+    </div>
+
+    <div id="ongkir-result-card" style="display:none">
+      <div class="page-sub" style="margin:0 0 10px" id="ongkir-dest-label"></div>
+      <div id="ongkir-result-list" class="trk-grid"></div>
+    </div>
+  </div>
+
+</div><!-- end main-area -->
+
+<!-- ── BOTTOM NAV (mobile) ── -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+
+    <button class="bnav-item active" id="bnav-dashboard" onclick="switchPage('dashboard')">
+      <div class="bnav-icon-wrap">
+        <svg viewBox="0 0 24 24">
+          <rect x="3" y="13" width="4" height="8" rx="1"/>
+          <rect x="10" y="9" width="4" height="12" rx="1"/>
+          <rect x="17" y="5" width="4" height="16" rx="1"/>
+        </svg>
+      </div>
+      <span class="bnav-label">Dashboard</span>
+    </button>
+
+    <button class="bnav-item" id="bnav-upload" onclick="switchPage('upload')">
+      <div class="bnav-icon-wrap">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4"/>
+          <path d="M15 2l5 5-5 5"/>
+          <path d="M20 7H9"/>
+        </svg>
+      </div>
+      <span class="bnav-label">Upload</span>
+    </button>
+
+    <button class="bnav-item" id="bnav-tracking" onclick="switchPage('tracking')">
+      <div class="bnav-icon-wrap">
+        <svg viewBox="0 0 24 24">
+          <rect x="1" y="3" width="15" height="13" rx="1"/>
+          <path d="M16 8h4l3 3v5h-7V8z"/>
+          <circle cx="5.5" cy="18.5" r="2.5"/>
+          <circle cx="18.5" cy="18.5" r="2.5"/>
+        </svg>
+      </div>
+      <span class="bnav-label">Tracking</span>
+    </button>
+
+    <button class="bnav-item" id="bnav-ongkir" onclick="switchPage('ongkir')">
+      <div class="bnav-icon-wrap">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 17h1a2 2 0 1 0 4 0h6a2 2 0 1 0 4 0h1v-4l-3-4h-3V6H3v11z"/>
+          <circle cx="6" cy="17" r="0.1"/>
+          <circle cx="16" cy="17" r="0.1"/>
+        </svg>
+      </div>
+      <span class="bnav-label">Ongkir</span>
+    </button>
+
+    <button class="bnav-item" id="bnav-setting" onclick="switchPage('setting')">
+      <div class="bnav-icon-wrap">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </div>
+      <span class="bnav-label">Setting</span>
+    </button>
+
+  </div>
+</nav>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- Konfirmasi Submit Modal -->
+<div class="confirm-overlay" id="confirm-overlay" style="display:none">
+  <div class="confirm-modal">
+    <div class="confirm-icon">⚠️</div>
+    <div class="confirm-title">Ada data yang tidak valid</div>
+    <div class="confirm-body" id="confirm-body"></div>
+    <div class="confirm-note">Perbaiki data di atas dulu sebelum submit.</div>
+    <div class="confirm-actions">
+      <button class="confirm-btn-ok" onclick="confirmSubmitCancel()">Perbaiki Dulu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Tracking Resi Modal -->
+<div class="tr-modal-overlay" id="tr-modal" style="display:none" onclick="if(event.target===this)trCloseModal()">
+  <div class="tr-modal-box">
+    <div class="tr-modal-head">
+      <div>
+        <div class="tr-modal-title" id="tr-modal-title">Detail Pengiriman</div>
+        <div class="tr-modal-sub" id="tr-modal-sub"></div>
+      </div>
+      <button class="tr-modal-close" onclick="trCloseModal()">✕</button>
+    </div>
+    <div id="tr-modal-body"></div>
+    <div class="tr-modal-actions">
+      <button class="btn-secondary" onclick="trManualCheckFromModal()">🔄 Cek Ulang</button>
+    </div>
+  </div>
+</div>
+<!-- Modal Grade / Skor Penerima (Mengantar) -->
+<div class="tr-modal-overlay" id="grade-modal" style="display:none" onclick="if(event.target===this)closeGradeModal()">
+  <div class="tr-modal-box" style="max-width:480px">
+    <div class="tr-modal-head">
+      <div>
+        <div class="tr-modal-title">Skor Penerima (Mengantar)</div>
+        <div class="tr-modal-sub" id="grade-modal-sub"></div>
+      </div>
+      <button class="tr-modal-close" onclick="closeGradeModal()">✕</button>
+    </div>
+    <div id="grade-modal-body" style="padding:1rem"></div>
+    <div class="tr-modal-actions">
+      <button class="btn-secondary" onclick="closeGradeModal()">Tutup</button>
+    </div>
+  </div>
+</div>
+<!-- Modal Bukti SS -->
+<div class="tr-modal-overlay" id="ss-modal" style="display:none" onclick="if(event.target===this)closeSSModal()">
+  <div class="tr-modal-box" style="max-width:480px">
+    <div class="tr-modal-head">
+      <div>
+        <div class="tr-modal-title">Bukti Screenshot</div>
+        <div class="tr-modal-sub" id="ss-modal-sub"></div>
+      </div>
+      <button class="tr-modal-close" onclick="closeSSModal()">✕</button>
+    </div>
+    <div id="ss-modal-body" style="padding:1rem;display:flex;flex-direction:column;gap:16px"></div>
+    <div class="tr-modal-actions">
+      <button class="btn-secondary" onclick="closeSSModal()">Tutup</button>
+      <button class="btn-primary" id="ss-save-btn" onclick="ssSave()" style="width:auto;padding:10px 20px">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- E-Member Card Modal (Transfer) -->
+<div class="tr-modal-overlay" id="emember-modal" style="display:none" onclick="if(event.target===this)closeMemberModal()">
+  <div class="tr-modal-box" style="max-width:560px">
+    <div class="tr-modal-head">
+      <div>
+        <div class="tr-modal-title">🎉 E-Member Card</div>
+        <div class="tr-modal-sub" id="emember-modal-sub">Pelanggan terdaftar sebagai member transfer</div>
+      </div>
+      <button class="tr-modal-close" onclick="closeMemberModal()">✕</button>
+    </div>
+    <div style="padding:1rem;display:flex;flex-direction:column;align-items:center;gap:14px">
+      <canvas id="memberCardCanvas" width="760" height="440" style="width:100%;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15)"></canvas>
+      <button class="btn-primary" onclick="downloadMemberCardFromModal()" style="width:auto;padding:10px 24px;font-size:14px">⬇️ Download Card</button>
+    </div>
+    <div class="tr-modal-actions">
+      <button class="btn-secondary" onclick="closeMemberModal()">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

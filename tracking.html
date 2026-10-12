@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracking Resi — CRM Adsy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+/* Simple topbar tanpa sidebar */
+body.tracking-body { display: block; }
+.trk-topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.5rem;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+.trk-topbar-left { display: flex; align-items: center; gap: 12px; }
+.trk-topbar-logo { font-size: 15px; font-weight: 700; color: var(--accent); letter-spacing: -0.3px; }
+.trk-topbar-sub  { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.trk-topbar-right { display: flex; align-items: center; gap: 8px; }
+.trk-user-info { font-size: 12px; color: var(--muted); }
+.trk-user-name { font-weight: 600; color: var(--text); }
+
+.trk-main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* Theme toggle */
+.theme-btn {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.theme-btn:hover { border-color: var(--accent); }
+
+.s-kirim { color: var(--success); }
+.s-cancel { color: var(--danger); }
+.s-tunggu { color: var(--accent); }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/auth.js"></script>
+</head>
+<body class="tracking-body">
+
+<!-- ── TOPBAR ── -->
+<div class="trk-topbar">
+  <div class="trk-topbar-left">
+    <img src="img/logo-adsy.png" alt="Adsy" style="width:28px;height:28px;object-fit:contain;border-radius:7px" onerror="this.style.display='none'">
+    <div>
+      <div class="trk-topbar-logo">Tracking Resi</div>
+      <div class="trk-topbar-sub">CRM Adsy</div>
+    </div>
+  </div>
+  <div class="trk-topbar-right">
+    <span class="trk-user-info">
+      Halo, <span class="trk-user-name" id="user-nama">—</span>
+    </span>
+    <button class="theme-btn" onclick="toggleTheme()" title="Ganti tema" id="theme-btn">🌙</button>
+    <button class="btn-secondary" onclick="signOut()" style="font-size:12px;padding:6px 12px">Keluar</button>
+  </div>
+</div>
+
+<!-- ── MAIN CONTENT ── -->
+<div class="trk-main">
+
+  <!-- Header + Date Picker -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+    <div>
+      <div class="page-title" style="margin-bottom:2px">Tracking Order CS</div>
+      <div class="page-sub" style="margin:0">Status pengiriman semua CS</div>
+    </div>
+    <div style="position:relative" id="trk-drp-wrap">
+      <button class="drp-trigger" onclick="trkDrpToggle()" id="trk-drp-trigger">
+        <span>📅</span>
+        <span id="trk-drp-label">30 Hari Terakhir</span>
+        <span style="color:var(--muted)">▾</span>
+      </button>
+      <div class="drp-dropdown" id="trk-drp-dropdown">
+        <div class="drp-presets" style="width:145px;flex-shrink:0;border-right:1px solid var(--border);padding:10px 0">
+          <button class="trk-drp-preset" onclick="trkDrpPreset(1,'Hari Ini',this)">Hari Ini</button>
+          <button class="trk-drp-preset" onclick="trkDrpPresetYesterday(this)">Kemarin</button>
+          <hr style="border:none;border-top:1px solid var(--border);margin:6px 0">
+          <button class="trk-drp-preset" onclick="trkDrpPreset(7,'7 Hari Terakhir',this)">7 Hari Terakhir</button>
+          <button class="trk-drp-preset" onclick="trkDrpPreset(14,'14 Hari Terakhir',this)">14 Hari Terakhir</button>
+          <button class="trk-drp-preset active" onclick="trkDrpPreset(30,'30 Hari Terakhir',this)">30 Hari Terakhir</button>
+          <hr style="border:none;border-top:1px solid var(--border);margin:6px 0">
+          <button class="trk-drp-preset" onclick="trkDrpPresetThisMonth(this)">Bulan Ini</button>
+          <button class="trk-drp-preset" onclick="trkDrpPresetLastMonth(this)">Bulan Lalu</button>
+        </div>
+        <div style="display:flex;flex-direction:column;flex:1;min-width:280px">
+          <div class="drp-cal" id="trk-drp-cal" style="padding:14px;flex:1"></div>
+          <div class="drp-footer" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border)">
+            <div style="font-size:11px;color:var(--muted)">
+              <span id="trk-drp-sel-start">—</span> → <span id="trk-drp-sel-end">—</span>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="drp-cancel" onclick="trkDrpClose()">Batal</button>
+              <button class="drp-apply" onclick="trkDrpApply()">Terapkan</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="sum-grid" style="margin-top:12px;margin-bottom:12px">
+    <div class="sum-card tr-stat-clickable" id="trk-stat-SEMUA" onclick="trSetFilter('SEMUA')">
+      <div class="s-label">Total Kiriman</div>
+      <div class="s-value s-total" id="trk-total">—</div>
+    </div>
+    <div class="sum-card tr-stat-clickable" id="trk-stat-ON_PROSES" onclick="trSetFilter('ON_PROSES_GROUP')">
+      <div class="s-label">On Proses</div>
+      <div class="s-value s-tunggu" id="trk-proses">—</div>
+    </div>
+    <div class="sum-card tr-stat-clickable" id="trk-stat-BERMASALAH" onclick="trSetFilter('BERMASALAH')">
+      <div class="s-label">Undell</div>
+      <div class="s-value" style="color:#d97706" id="trk-undell">—</div>
+    </div>
+    <div class="sum-card tr-stat-clickable" id="trk-stat-SAMPAI" onclick="trSetFilter('SAMPAI')">
+      <div class="s-label">Delivered</div>
+      <div class="s-value s-kirim" id="trk-delivered">—</div>
+    </div>
+    <div class="sum-card tr-stat-clickable" id="trk-stat-RETUR" onclick="trSetFilter('RETUR')">
+      <div class="s-label">Retur</div>
+      <div class="s-value s-cancel" id="trk-retur">—</div>
+    </div>
+  </div>
+
+  <!-- Sub-filter cards followup (muncul saat filter Bermasalah aktif) -->
+  <div id="trk-followup-stats" style="display:none;margin-bottom:12px"></div>
+
+  <div id="trk-alerts"></div>
+  <div class="tr-tabs" id="trk-tabs"></div>
+
+  <!-- Filter bar -->
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <select id="trk-filter-eks" class="trk-select" onchange="applyTrkFilter()">
+      <option value="">Semua Ekspedisi</option>
+      <option value="JNE">JNE</option>
+      <option value="JNT">J&amp;T</option>
+      <option value="SICEPAT">SiCepat</option>
+      <option value="ANTERAJA">Anteraja</option>
+      <option value="NINJA">Ninja</option>
+      <option value="LION">Lion</option>
+      <option value="TIKI">TIKI</option>
+      <option value="SAP">SAP</option>
+    </select>
+    <select id="trk-cs-filter" class="trk-select" onchange="applyTrkFilter()">
+      <option value="">Semua CS</option>
+    </select>
+    <input type="text" id="trk-search" class="trk-search" placeholder="🔍 Cari nama / HP / resi..." oninput="applyTrkFilter()">
+    <div style="display:flex;gap:8px;margin-left:auto">
+      <span id="trk-info" style="font-size:12px;color:var(--muted);font-family:var(--mono);align-self:center;white-space:nowrap">—</span>
+      <button class="btn-secondary" onclick="trExportCSV()" style="font-size:12px;padding:7px 12px">⬇️ Export</button>
+      <button class="btn-secondary" id="trk-refresh-all-btn" onclick="trRefreshAll()" style="font-size:12px;padding:7px 12px">📡 Refresh Semua</button>
+      <button class="btn-secondary" onclick="loadTracking()" style="font-size:12px;padding:7px 12px">🔄 Refresh</button>
+    </div>
+  </div>
+
+  <!-- Cards grid -->
+  <div id="trk-cards" class="trk-grid"></div>
+
+</div><!-- /trk-main -->
+
+<!-- Toast -->
+<div id="toast-wrap" class="toast-wrap"></div>
+
+<!-- Modal detail resi -->
+<div class="tr-modal-overlay" id="tr-modal" style="display:none" onclick="if(event.target===this)trCloseModal()">
+  <div class="tr-modal-box">
+    <div class="tr-modal-head">
+      <div>
+        <div class="tr-modal-title" id="tr-modal-title">Detail Pengiriman</div>
+        <div class="tr-modal-sub" id="tr-modal-sub"></div>
+      </div>
+      <button class="tr-modal-close" onclick="trCloseModal()">✕</button>
+    </div>
+    <div id="tr-modal-body"></div>
+    <div id="tr-modal-actions" class="tr-modal-actions">
+      <button class="btn-secondary" onclick="trManualCheckFromModal()">🔄 Cek Ulang</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── AUTH CHECK ────────────────────────────────────────────────────────────────
+let currentUser    = null;
+let currentProfile = null;
+
+(async () => {
+  currentUser = await requireAuth();
+  if (!currentUser) return;
+
+  currentProfile = await getProfile(currentUser.id);
+
+  // Hanya admin dan team retur yang boleh akses
+  if (!currentProfile || !['admin','retur'].includes(currentProfile.role)) {
+    window.location.href = 'app.html';
+    return;
+  }
+
+  const nama = currentProfile.nama || currentUser.email;
+  document.getElementById('user-nama').textContent = nama;
+
+  // Apply saved theme
+  const saved = localStorage.getItem('theme');
+  if (saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.getElementById('theme-btn').textContent = '☀️';
+  }
+
+  // Load WA template & tracking
+  await loadWaTemplate();
+  loadTracking();
+})();
+
+// ── THEME ─────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (isDark) {
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('theme', 'light');
+    document.getElementById('theme-btn').textContent = '🌙';
+  } else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    localStorage.setItem('theme', 'dark');
+    document.getElementById('theme-btn').textContent = '☀️';
+  }
+}
+
+// ── WA TEMPLATE ──────────────────────────────────────────────────────────────
+let waTemplate = null;
+const WA_TEMPLATE_DEFAULT = `Halo {nama} 👋\n\nPaket kamu sedang mengalami kendala pengiriman nih.\n\n📦 Resi: {resi} ({ekspedisi})\n⚠️ Kendala: {masalah}\n\nBisa tolong konfirmasi alamat / ketersediaan kamu biar kurir bisa kirim ulang?\n\nTerima kasih 🙏`;
+
+async function loadWaTemplate() {
+  try {
+    const { data } = await sbSS.from('wa_template').select('template_text').eq('key','bermasalah').single();
+    if (data?.template_text) waTemplate = data.template_text;
+  } catch(e) { /* pakai default */ }
+}
+
+function extractMasalah(row) {
+  const detail = row.status_resi_detail;
+  if (!detail) return 'Kendala pengiriman';
+  const history = Array.isArray(detail.history) ? [...detail.history].reverse() : [];
+  const PROBLEM = /gagal|kendala|bermasalah|tidak ditemukan|alamat tidak|tidak ada orang|tidak ditempat|tidak dihuni|menunggu konfirmasi|disimpan di gudang|ditolak|pindah alamat/i;
+  for (const h of history) {
+    const desc = (h.desc || h.content || '').trim();
+    if (!desc) continue;
+    const group = (h.type && h.type.group) || '';
+    const tag   = (h.type && h.type.tag)   || '';
+    if (group === 'UNDELIVERED' || tag === 'actionRequired' || PROBLEM.test(desc)) return desc;
+  }
+  const latest = history[0];
+  return (latest && (latest.desc || latest.content || '').trim()) || 'Kendala pengiriman';
+}
+
+function trBuildWaUrl(row) {
+  const tpl = waTemplate || WA_TEMPLATE_DEFAULT;
+  const eks  = extractEkspedisi(row.pembayaran) || row.pembayaran || '';
+  const msg  = tpl
+    .replace(/{nama}/g,      row.nama   || '')
+    .replace(/{resi}/g,      row.resi   || '')
+    .replace(/{ekspedisi}/g, eks)
+    .replace(/{masalah}/g,   extractMasalah(row))
+    .replace(/{produk}/g,    row.jumlah || '');
+  let hp = (row.hp || '').replace(/\D/g, '');
+  if (hp.startsWith('0'))        hp = '62' + hp.slice(1);
+  else if (!hp.startsWith('62')) hp = '62' + hp;
+  return `https://wa.me/${hp}?text=${encodeURIComponent(msg)}`;
+}
+
+// ── EKSPEDISI ─────────────────────────────────────────────────────────────────
+const EKSPEDISI_LIST = [
+  { key:'JNE',       pattern:/\bJNE\b/i },
+  { key:'JNT',       pattern:/\bJ[&\+]?T\b|JALUR\s*NUGRAHA/i },
+  { key:'SICEPAT',   pattern:/\bSICEPAT\b|\bSICE\b/i },
+  { key:'ANTERAJA',  pattern:/\bANTERAJA\b|\bANTER\b/i },
+  { key:'NINJA',     pattern:/\bNINJA\b/i },
+  { key:'SAP',       pattern:/\bSAP\b/i },
+  { key:'LION',      pattern:/\bLION\b/i },
+  { key:'TIKI',      pattern:/\bTIKI\b/i },
+  { key:'POS',       pattern:/\bPOS\s*INDONESIA\b|\bPOS\b/i },
+  { key:'REX',       pattern:/\bREX\b/i },
+  { key:'IDEXPRESS', pattern:/\bID\s*EXPRESS\b|\bIDEX\b/i },
+  { key:'GRAB',      pattern:/\bGRAB\b/i },
+  { key:'GOJEK',     pattern:/\bGOJEK\b|\bGOSEND\b/i },
+];
+function extractEkspedisi(text) {
+  if (!text) return null;
+  for (const e of EKSPEDISI_LIST) { if (e.pattern.test(text)) return e.key; }
+  return null;
+}
+
+// ── TRACKING STAGE ────────────────────────────────────────────────────────────
+const TR_STEP_LABELS = ['Konfirmasi','Dikirim','Kota Tujuan','OTW','Sampai'];
+const TR_STAGE_META = {
+  MENUNGGU_RESI: { label:'⏳ Menunggu Resi', color:'var(--warn)',    bg:'var(--warn-light)',   step:1 },
+  BELUM_DICEK:   { label:'🔍 Belum Dicek',   color:'var(--muted)',   bg:'var(--bg)',            step:1 },
+  DIKIRIM:       { label:'🚚 Dikirim',       color:'var(--accent)',  bg:'var(--accent-light)',  step:2 },
+  KOTA_TUJUAN:   { label:'🏙️ Kota Tujuan',  color:'var(--accent)',  bg:'var(--accent-light)',  step:3 },
+  OTW:           { label:'🛵 OTW',           color:'var(--accent)',  bg:'var(--accent-light)',  step:4 },
+  SAMPAI:        { label:'✅ Sampai',        color:'var(--success)', bg:'var(--success-light)', step:5 },
+  BERMASALAH:    { label:'⚠️ Bermasalah',    color:'var(--danger)',  bg:'var(--danger-light)',  step:2, problem:true },
+  RETUR:         { label:'↩️ Retur',         color:'var(--danger)',  bg:'var(--danger-light)',  step:2, problem:true },
+};
+const TR_COURIER_MAP = {
+  'JNE':'JNE','JNT':'JT','SICEPAT':'SiCepat','LION':'lion',
+  'SAP':'SAP','ANTERAJA':'anteraja','NINJA':'Ninja','IDEXPRESS':'iDexpress'
+};
+
+function trCardState(stage) {
+  if (stage === 'SAMPAI')     return 'delivered';
+  if (stage === 'RETUR')      return 'retur';
+  if (stage === 'BERMASALAH') return 'undell';
+  return 'proses';
+}
+function trEffectiveStage(row) {
+  if (!row.resi) return 'MENUNGGU_RESI';
+  if (!row.status_resi || !TR_STAGE_META[row.status_resi]) return 'BELUM_DICEK';
+  return row.status_resi;
+}
+function trTimeAgo(iso) {
+  if (!iso) return '';
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins   = Math.floor(diffMs / 60000);
+  if (mins < 1)   return 'baru saja';
+  if (mins < 60)  return `${mins} menit lalu`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  return `${Math.floor(hours / 24)} hari lalu`;
+}
+function trIsPickupPhase(e) { return !!(e && e.code && /pickup/i.test(e.code)); }
+function trIsSelfReceipt(e) {
+  if (!e || !e.place) return false;
+  const m = /diterima oleh\s+(.+)/i.exec(e.descOnly || '');
+  if (!m) return false;
+  const norm = s => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return norm(m[1]) === norm(e.place);
+}
+function trHasReceivedBy(e) { return !!(e && e.receivedBy); }
+
+function _trNormalizeMengantar(json) {
+  if (!json || !json.success || !json.data) return null;
+  const d = json.data;
+  const history = Array.isArray(d.history) ? d.history : [];
+  const entries = history.map(h => ({
+    desc: [h.desc, h.code].filter(Boolean).join(' '),
+    descOnly: h.desc || '',
+    code: h.code || null,
+    place: h.counter_name || h.city_name || null,
+    receivedBy: (h.receiver || '').trim() || null,
+    group: h.type?.group || null, tag: h.type?.tag || null, reasonDelivery: null
+  }));
+  return {
+    statusCategory: d.statusCategory || d.status || '',
+    entries,
+    detail: { history, receiver: d.RECEIVER_NAME || null, city: d.RECEIVER_CITY || null }
+  };
+}
+
+function _trNormalizePos(json) {
+  if (!json || !json.success || !json.data) return null;
+  const d = json.data;
+  const history = Array.isArray(d.connote_history) ? d.connote_history : [];
+  const destNopen = d.connote_customfield?.destination_nopen || null;
+  const entries = history.map(h => ({
+    desc: [h.content, h.content2].filter(Boolean).join(' '),
+    group: null, tag: null, isPos: true,
+    atDestination: !!(destNopen && h.state === 'INLOCATION' && h.nopen === destNopen),
+    reasonDelivery: h.reason_delivery || null
+  }));
+  return {
+    statusCategory: d.connote_state || '',
+    entries,
+    detail: { history, receiver: d.connote_receiver_name || null, city: null }
+  };
+}
+
+function trMapTrackingStage({ resi, statusCategory, entries }) {
+  if (!resi) return { stage: 'MENUNGGU_RESI', step: 1 };
+  const cat = (statusCategory || '').toUpperCase();
+  const arr = Array.isArray(entries) ? entries : [];
+  const latest = arr.length ? arr[arr.length - 1] : null;
+  const latestDesc = (latest?.desc || '').toLowerCase();
+  let reachedStep = 2;
+  arr.forEach(e => {
+    if (trIsPickupPhase(e)) return;
+    const d = (e.desc || '').toLowerCase();
+    if (/sedang diantar|dalam pengantaran|out for delivery|kurir menuju|\botw\b|akan dikirim ke alamat penerima|with delivery courier|delivery courier|diantar ke alamat|on delivery|1st attempt|2nd attempt|percobaan/i.test(d)) reachedStep = Math.max(reachedStep, 4);
+    else if (e.atDestination || /kota tujuan|gudang tujuan|tiba di kota|received at destination|received at warehouse|process and forward|inbound|sti-dest/i.test(d)) reachedStep = Math.max(reachedStep, 3);
+  });
+  let stage;
+  if (cat.includes('RETUR') || cat.includes('RETURN') || arr.some(e => /retur|dikembalikan|\brts\b|\brto\b|return to sender/i.test(e.desc||''))) {
+    stage = 'RETUR';
+  } else if (cat === 'DELIVERED' || (/diterima oleh|\bdelivered\b|\bpod\b/.test(latestDesc) && !trIsSelfReceipt(latest)) || trHasReceivedBy(latest)) {
+    stage = 'SAMPAI';
+  } else {
+    const hasStructuredProblem = arr.some(e => !trIsPickupPhase(e) && (e.group === 'UNDELIVERED' || e.tag === 'actionRequired' || !!e.reasonDelivery));
+    if (hasStructuredProblem || arr.some(e => !trIsPickupPhase(e) && !e.isPos && /gagal|kendala|bermasalah|problematic|tidak ditemukan|alamat tidak (lengkap|dikenal)|tidak ada orang|tidak ditempat|tidak dihuni|menunggu konfirmasi|disimpan di gudang|ditolak|pindah alamat|box undel/i.test(e.desc||''))) {
+      stage = 'BERMASALAH';
+    } else if (reachedStep >= 4) { stage = 'OTW';
+    } else if (reachedStep >= 3) { stage = 'KOTA_TUJUAN';
+    } else { stage = 'DIKIRIM'; }
+  }
+  return { stage, step: stage === 'SAMPAI' ? 5 : reachedStep };
+}
+
+async function checkResiTracking(resi, ekspedisi) {
+  if (!resi) return null;
+  const eks = (ekspedisi || '').toUpperCase();
+  const TIMEOUT_MS = 9000;
+  const fetchWithTimeout = (url) => {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+  };
+  try {
+    let normalized;
+    if (eks === 'POS' || eks.includes('POS')) {
+      const r = await fetchWithTimeout('/api/pos-tracking?resi=' + encodeURIComponent(resi));
+      normalized = _trNormalizePos(await r.json());
+    } else {
+      const courier = TR_COURIER_MAP[ekspedisi] || TR_COURIER_MAP[eks] || ekspedisi;
+      if (!courier) return null;
+      const r = await fetchWithTimeout('/api/tracking?tracking_number=' + encodeURIComponent(resi) + '&courier=' + encodeURIComponent(courier));
+      normalized = _trNormalizeMengantar(await r.json());
+    }
+    if (!normalized) return null;
+    const { stage, step } = trMapTrackingStage({ resi, ...normalized });
+    return { stage, step, detail: normalized.detail };
+  } catch(e) { return null; }
+}
+
+// ── DATE RANGE PICKER ─────────────────────────────────────────────────────────
+const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const DAYS_ID   = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+function drpFmt(d) {
+  if (!d) return '—';
+  return d.toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
+}
+
+let trkDrpSelStart = null, trkDrpSelEnd = null, trkDrpPickingEnd = false;
+let trkDrpViewYear = new Date().getFullYear(), trkDrpViewMonth = new Date().getMonth();
+let trkDrpStart = null, trkDrpEnd = null;
+
+(function() {
+  trkDrpSelStart = new Date(Date.now() - 29*864e5); trkDrpSelStart.setHours(0,0,0,0);
+  trkDrpSelEnd   = new Date(); trkDrpSelEnd.setHours(23,59,59,999);
+  trkDrpStart = trkDrpSelStart.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  trkDrpEnd   = trkDrpSelEnd.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+})();
+
+function trkDrpToggle() {
+  const dd = document.getElementById('trk-drp-dropdown');
+  dd.classList.toggle('open');
+  if (dd.classList.contains('open')) { trkDrpRender(); document.addEventListener('click', trkDrpOutside); }
+  else document.removeEventListener('click', trkDrpOutside);
+}
+function trkDrpClose() {
+  document.getElementById('trk-drp-dropdown').classList.remove('open');
+  document.removeEventListener('click', trkDrpOutside);
+}
+function trkDrpOutside(e) {
+  const dd = document.getElementById('trk-drp-dropdown');
+  const tr = document.getElementById('trk-drp-trigger');
+  if (dd && tr && !dd.contains(e.target) && !tr.contains(e.target)) trkDrpClose();
+}
+function trkDrpPreset(days, label, btn) {
+  trkDrpSelStart = new Date(Date.now() - (days-1)*864e5); trkDrpSelStart.setHours(0,0,0,0);
+  trkDrpSelEnd   = new Date(); trkDrpSelEnd.setHours(23,59,59,999);
+  document.querySelectorAll('.trk-drp-preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  trkDrpUpdateSel(); trkDrpRender();
+}
+function trkDrpPresetYesterday(btn) {
+  trkDrpSelStart = new Date(Date.now()-864e5); trkDrpSelStart.setHours(0,0,0,0);
+  trkDrpSelEnd   = new Date(Date.now()-864e5); trkDrpSelEnd.setHours(23,59,59,999);
+  document.querySelectorAll('.trk-drp-preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  trkDrpUpdateSel(); trkDrpRender();
+}
+function trkDrpPresetThisMonth(btn) {
+  trkDrpSelStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  trkDrpSelEnd   = new Date(); trkDrpSelEnd.setHours(23,59,59,999);
+  document.querySelectorAll('.trk-drp-preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  trkDrpUpdateSel(); trkDrpRender();
+}
+function trkDrpPresetLastMonth(btn) {
+  const n = new Date();
+  trkDrpSelStart = new Date(n.getFullYear(), n.getMonth()-1, 1);
+  trkDrpSelEnd   = new Date(n.getFullYear(), n.getMonth(), 0); trkDrpSelEnd.setHours(23,59,59,999);
+  document.querySelectorAll('.trk-drp-preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  trkDrpUpdateSel(); trkDrpRender();
+}
+function trkDrpUpdateSel() {
+  document.getElementById('trk-drp-sel-start').textContent = drpFmt(trkDrpSelStart);
+  document.getElementById('trk-drp-sel-end').textContent   = drpFmt(trkDrpSelEnd);
+}
+function trkDrpApply() {
+  if (!trkDrpSelStart) return;
+  const s = trkDrpSelStart, e = trkDrpSelEnd || trkDrpSelStart;
+  e.setHours(23,59,59,999);
+  trkDrpStart = s.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  trkDrpEnd   = e.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  const label = trkDrpStart === trkDrpEnd ? drpFmt(s) : drpFmt(s) + ' — ' + drpFmt(e);
+  document.getElementById('trk-drp-label').textContent = label;
+  trkDrpClose();
+  loadTracking();
+}
+function trkDrpClickDay(y, m, d) {
+  const clicked = new Date(y, m, d);
+  if (!trkDrpSelStart || (trkDrpSelStart && trkDrpSelEnd)) {
+    trkDrpSelStart = clicked; trkDrpSelEnd = null; trkDrpPickingEnd = true;
+  } else {
+    if (clicked < trkDrpSelStart) { trkDrpSelEnd = trkDrpSelStart; trkDrpSelStart = clicked; }
+    else trkDrpSelEnd = clicked;
+    trkDrpPickingEnd = false;
+  }
+  trkDrpUpdateSel(); trkDrpRender();
+}
+function trkDrpRender() {
+  const y = trkDrpViewYear, m = trkDrpViewMonth;
+  const firstDay    = new Date(y, m, 1).getDay();
+  const startPad    = firstDay === 0 ? 6 : firstDay - 1;
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const prevDays    = new Date(y, m, 0).getDate();
+  const today       = new Date(); today.setHours(0,0,0,0);
+  let html = `<div class="drp-cal-hdr">
+    <button class="drp-nav" onclick="trkDrpNav(-1)">‹</button>
+    <div class="drp-cal-title">${MONTHS_ID[m]} ${y}</div>
+    <button class="drp-nav" onclick="trkDrpNav(1)">›</button>
+  </div>
+  <div class="drp-days-hdr">${DAYS_ID.map(d => '<span>' + d + '</span>').join('')}</div>
+  <div class="drp-days">`;
+  for (let i = startPad; i > 0; i--) html += `<button class="drp-day other-month" onclick="trkDrpNav(-1)">${prevDays-i+1}</button>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cur = new Date(y, m, d);
+    const isToday = cur.getTime() === today.getTime();
+    const isStart = trkDrpSelStart && cur.getTime() === new Date(trkDrpSelStart.getFullYear(), trkDrpSelStart.getMonth(), trkDrpSelStart.getDate()).getTime();
+    const isEnd   = trkDrpSelEnd   && cur.getTime() === new Date(trkDrpSelEnd.getFullYear(),   trkDrpSelEnd.getMonth(),   trkDrpSelEnd.getDate()).getTime();
+    const inRange = trkDrpSelStart && trkDrpSelEnd && cur > trkDrpSelStart && cur < trkDrpSelEnd;
+    let cls = 'drp-day';
+    if (isStart && isEnd) cls += ' selected';
+    else if (isStart) cls += ' range-start';
+    else if (isEnd)   cls += ' range-end';
+    else if (inRange) cls += ' in-range';
+    if (isToday) cls += ' today';
+    html += `<button class="${cls}" onclick="trkDrpClickDay(${y},${m},${d})">${d}</button>`;
+  }
+  const total = startPad + daysInMonth;
+  const rem   = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let d = 1; d <= rem; d++) html += `<button class="drp-day other-month" onclick="trkDrpNav(1)">${d}</button>`;
+  html += '</div>';
+  document.getElementById('trk-drp-cal').innerHTML = html;
+}
+function trkDrpNav(dir) {
+  trkDrpViewMonth += dir;
+  if (trkDrpViewMonth > 11) { trkDrpViewMonth = 0; trkDrpViewYear++; }
+  if (trkDrpViewMonth < 0)  { trkDrpViewMonth = 11; trkDrpViewYear--; }
+  trkDrpRender();
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+const TR_TABS = [
+  { key:'SEMUA',         label:'Semua' },
+  { key:'MENUNGGU_RESI', label:'⏳ Menunggu Resi' },
+  { key:'DIKIRIM',       label:'🚚 Dikirim' },
+  { key:'KOTA_TUJUAN',   label:'🏙️ Kota Tujuan' },
+  { key:'OTW',           label:'🛵 OTW' },
+  { key:'SAMPAI',        label:'✅ Sampai' },
+  { key:'BERMASALAH',    label:'⚠️ Bermasalah' },
+  { key:'RETUR',         label:'↩️ Retur' },
+];
+const TR_ON_PROSES_STAGES = ['MENUNGGU_RESI','BELUM_DICEK','DIKIRIM','KOTA_TUJUAN','OTW'];
+let trFilterStage = 'SEMUA';
+
+function trSetFilter(key) {
+  trFilterStage    = key;
+  trFollowupFilter = null;
+  renderTrkTabs();
+  applyTrkFilter();
+}
+function renderTrkTabs() {
+  const wrap = document.getElementById('trk-tabs');
+  if (!wrap) return;
+  wrap.innerHTML = TR_TABS.map(t =>
+    `<div class="tr-tab ${trFilterStage===t.key?'tr-tab-active':''}" onclick="trSetFilter('${t.key}')">${t.label}</div>`
+  ).join('');
+  const cardMap = { SEMUA:'SEMUA', ON_PROSES:'ON_PROSES_GROUP', BERMASALAH:'BERMASALAH', RETUR:'RETUR', SAMPAI:'SAMPAI' };
+  Object.entries(cardMap).forEach(([cardKey, filterKey]) => {
+    document.getElementById('trk-stat-'+cardKey)?.classList.toggle('tr-stat-active', trFilterStage===filterKey);
+  });
+}
+
+// ── DATA ──────────────────────────────────────────────────────────────────────
+let trkAllData       = [];
+let trkFilteredCache = [];
+let trkRenderLimit   = 100;
+let trFollowupFilter = null;
+
+function trFollowupLevel(row) {
+  const f = row.followup;
+  if (!f) return 'belum';
+  if (f.lapor_ekspedisi)      return 'lapor_ekspedisi';
+  if (f.cs_lapor_setelah_fu)  return 'cs_lapor_setelah_fu';
+  if (f.fu3_cs)               return 'fu3_cs';
+  if (f.fu2_cs)               return 'fu2_cs';
+  if (f.fu1_cs)               return 'fu1_cs';
+  if (f.cs_sudah_lapor)       return 'cs_sudah_lapor';
+  return 'belum';
+}
+
+const FOLLOWUP_STAT_META = [
+  { key:'belum',               label:'Belum Ditangani', color:'var(--danger)',  bg:'var(--danger-light)' },
+  { key:'cs_sudah_lapor',      label:'CS Sudah Lapor',  color:'var(--accent)',  bg:'var(--accent-light)' },
+  { key:'fu1_cs',              label:'FU 1x',           color:'#d97706',        bg:'#fffbeb' },
+  { key:'fu2_cs',              label:'FU 2x',           color:'#b45309',        bg:'#fef3c7' },
+  { key:'fu3_cs',              label:'FU 3x',           color:'#92400e',        bg:'#fde68a' },
+  { key:'cs_lapor_setelah_fu', label:'Lapor Stlh FU',   color:'#7c3aed',        bg:'#f5f3ff' },
+  { key:'lapor_ekspedisi',     label:'Lapor Ekspedisi', color:'var(--success)', bg:'var(--success-light)' },
+];
+
+function renderFollowupStats(bermasalahList) {
+  const wrap = document.getElementById('trk-followup-stats');
+  if (!wrap) return;
+  if (trFilterStage !== 'BERMASALAH') { wrap.style.display = 'none'; return; }
+
+  const counts = {};
+  FOLLOWUP_STAT_META.forEach(m => counts[m.key] = 0);
+  bermasalahList.forEach(r => counts[trFollowupLevel(r)]++);
+
+  wrap.style.display = 'grid';
+  wrap.style.gridTemplateColumns = 'repeat(auto-fit,minmax(100px,1fr))';
+  wrap.style.gap = '6px';
+
+  wrap.innerHTML = FOLLOWUP_STAT_META.map(m => {
+    const active = trFollowupFilter === m.key;
+    return `<div onclick="trSetFollowupFilter('${m.key}')"
+      style="background:${active ? m.color : 'var(--surface)'};
+             border:1.5px solid ${active ? m.color : 'var(--border)'};
+             border-radius:var(--radius);padding:8px 10px;cursor:pointer;
+             transition:all .15s;box-shadow:var(--shadow)">
+      <div style="font-size:9px;color:${active ? 'rgba(255,255,255,.75)' : 'var(--muted)'};
+                  text-transform:uppercase;letter-spacing:.4px;font-family:var(--mono);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+        ${m.label}
+      </div>
+      <div style="font-size:18px;font-weight:700;color:${active ? '#fff' : m.color};line-height:1">
+        ${counts[m.key] || '—'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function trSetFollowupFilter(key) {
+  trFollowupFilter = trFollowupFilter === key ? null : key;
+  applyTrkFilter();
+}
+
+const todayStr = () => new Date().toISOString().split('T')[0];
+
+async function loadTracking() {
+  if (!currentUser) return;
+  renderTrkTabs();
+  const trkStart = trkDrpStart || todayStr();
+  const trkEnd   = trkDrpEnd   || todayStr();
+  const cardsEl  = document.getElementById('trk-cards');
+  if (cardsEl) cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Memuat data...</div>';
+  try {
+    // Batasi range max 30 hari
+    const msPerDay = 86400000;
+    const diffDays = Math.round((new Date(trkEnd) - new Date(trkStart)) / msPerDay);
+    if (diffDays > 30) {
+      showToast('Maksimal range 30 hari untuk Tracking', 'error');
+      if (cardsEl) cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Range maksimal 30 hari.</div>';
+      return;
+    }
+
+    // Pagination loop — fetch semua @1.000 per batch
+    const PAGE  = 1000;
+    let allData = [];
+    let from    = 0;
+    while (true) {
+      const { data: batch, error: batchErr } = await sb.from('all_orderan')
+        .select('no, tanggal, nama, hp, jumlah, pembayaran, resi, kabupaten, status_akhir')
+        .eq('sumber', 'cs_input')
+        .gte('tanggal', trkStart)
+        .lte('tanggal', trkEnd)
+        .order('tanggal', { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (batchErr) throw batchErr;
+      allData = allData.concat(batch || []);
+      if (!batch || batch.length < PAGE) break;
+      from += PAGE;
+    }
+    const rows = allData;
+
+    if (!rows.length) {
+      trkAllData = [];
+      updateTrkCards([]);
+      document.getElementById('trk-alerts').innerHTML = '';
+      document.getElementById('trk-info').textContent = '0 data';
+      if (cardsEl) cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Tidak ada orderan di periode ini.</div>';
+      return;
+    }
+
+    // Ambil cs_nama dari orderan_masuk_crm — pagination biar tidak kepotong limit 1000
+    let masukData = [], masukFrom = 0;
+    while (true) {
+      const { data: masukBatch } = await sb.from('orderan_masuk_crm')
+        .select('hp, tanggal, cs_nama')
+        .gte('tanggal', trkStart)
+        .lte('tanggal', trkEnd)
+        .range(masukFrom, masukFrom + 999);
+      masukData = masukData.concat(masukBatch || []);
+      if (!masukBatch || masukBatch.length < 1000) break;
+      masukFrom += 1000;
+    }
+    const csNamaMap = {};
+    (masukData || []).forEach(r => {
+      const hp  = normalizeHP(r.hp || '');
+      const tgl = (r.tanggal || '').slice(0, 10);
+      if (hp && tgl) csNamaMap[hp + '_' + tgl] = r.cs_nama || '—';
+    });
+
+    // Attach cs_nama ke setiap row
+    rows.forEach(r => {
+      const tgl = (r.tanggal || '').slice(0, 10);
+      r.cs_nama = csNamaMap[normalizeHP(r.hp || '') + '_' + tgl] || '—';
+    });
+
+    // Isi resi yang kosong — cari di all_orderan by HP+tanggal (any sumber)
+    const emptyResiRows = rows.filter(r => !r.resi);
+    if (emptyResiRows.length) {
+      const emptyHpSet = new Set();
+      emptyResiRows.forEach(r => {
+        const hp = String(r.hp || '');
+        emptyHpSet.add(hp);
+        emptyHpSet.add(hp.replace(/^0+/, ''));
+        if (!hp.startsWith('0')) emptyHpSet.add('0' + hp);
+      });
+      const { data: resiLookup } = await sb.from('all_orderan')
+        .select('hp, tanggal, resi')
+        .in('hp', [...emptyHpSet])
+        .not('resi', 'is', null)
+        .neq('resi', '')
+        .gte('tanggal', trkStart)
+        .lte('tanggal', trkEnd);
+      const resiByHpTgl = {};
+      (resiLookup || []).forEach(r => {
+        if (!r.resi) return;
+        const key = normalizeHP(String(r.hp || '')) + '_' + (r.tanggal || '').slice(0, 10);
+        if (!resiByHpTgl[key]) resiByHpTgl[key] = r.resi;
+      });
+      rows.forEach(r => {
+        if (r.resi) return;
+        const key = normalizeHP(String(r.hp || '')) + '_' + (r.tanggal || '').slice(0, 10);
+        if (resiByHpTgl[key]) r.resi = resiByHpTgl[key];
+      });
+    }
+
+    // Fetch tracking cache (cs_order_tracking_crm) — batch per 500
+    const resiList = [...new Set(rows.map(r => (r.resi || '').trim()).filter(Boolean))];
+    let trkByResi = {};
+    if (resiList.length) {
+      const RESI_CHUNK = 500;
+      for (let i = 0; i < resiList.length; i += RESI_CHUNK) {
+        const { data: trkData } = await sb.from('cs_order_tracking_crm')
+          .select('resi, ekspedisi, status_resi, status_resi_step, status_resi_updated_at, status_resi_detail')
+          .in('resi', resiList.slice(i, i + RESI_CHUNK));
+        (trkData || []).forEach(t => { trkByResi[t.resi] = t; });
+      }
+    }
+    rows.forEach(r => {
+      const t = r.resi ? trkByResi[r.resi.trim()] : null;
+      r.status_resi            = t?.status_resi            || null;
+      r.status_resi_step       = t?.status_resi_step       || null;
+      r.status_resi_updated_at = t?.status_resi_updated_at || null;
+      r.status_resi_detail     = t?.status_resi_detail     || null;
+    });
+
+    // Fetch retur_followup_crm untuk semua resi
+    let followupByResi = {};
+    if (resiList.length) {
+      const RESI_CHUNK = 500;
+      for (let i = 0; i < resiList.length; i += RESI_CHUNK) {
+        const { data: fuData } = await sb.from('retur_followup_crm')
+          .select('*')
+          .in('resi', resiList.slice(i, i + RESI_CHUNK));
+        (fuData || []).forEach(f => { followupByResi[f.resi] = f; });
+      }
+    }
+    rows.forEach(r => {
+      r.followup = r.resi ? (followupByResi[r.resi.trim()] || null) : null;
+    });
+
+    trkAllData = rows;
+    updateTrkCards(trkAllData);
+    showTrkAlerts(trkAllData);
+    updateCsFilter();
+    applyTrkFilter();
+  } catch(e) {
+    showToast('Gagal load tracking: ' + e.message, 'error');
+    if (cardsEl) cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Gagal memuat data.</div>';
+  }
+}
+
+function updateCsFilter() {
+  const sel  = document.getElementById('trk-cs-filter');
+  if (!sel) return;
+  const curr  = sel.value;
+  const names = [...new Set(trkAllData.map(r => r.cs_nama).filter(n => n && n !== '—'))].sort();
+  sel.innerHTML = '<option value="">Semua CS</option>' +
+    names.map(n => `<option value="${n}" ${n===curr?'selected':''}>${n}</option>`).join('');
+}
+
+function applyTrkFilter() {
+  const eksF   = document.getElementById('trk-filter-eks')?.value    || '';
+  const csF    = document.getElementById('trk-cs-filter')?.value     || '';
+  const search = (document.getElementById('trk-search')?.value || '').toLowerCase();
+  let filtered = trkAllData.filter(r => {
+    const stage = trEffectiveStage(r);
+    if (trFilterStage === 'ON_PROSES_GROUP') {
+      if (!TR_ON_PROSES_STAGES.includes(stage)) return false;
+    } else if (trFilterStage !== 'SEMUA' && stage !== trFilterStage) {
+      return false;
+    }
+    return true;
+  });
+  if (eksF)   filtered = filtered.filter(r => extractEkspedisi(r.pembayaran) === eksF);
+  if (csF)    filtered = filtered.filter(r => r.cs_nama === csF);
+  if (search) filtered = filtered.filter(r =>
+    (r.nama    || '').toLowerCase().includes(search) ||
+    (r.hp      || '').includes(search)               ||
+    (r.resi    || '').toLowerCase().includes(search) ||
+    (r.cs_nama || '').toLowerCase().includes(search)
+  );
+  // Render followup sub-stats (hanya saat BERMASALAH aktif)
+  renderFollowupStats(filtered);
+
+  // Apply sub-filter followup
+  if (trFilterStage === 'BERMASALAH' && trFollowupFilter) {
+    filtered = filtered.filter(r => trFollowupLevel(r) === trFollowupFilter);
+  }
+
+  trkFilteredCache = filtered;
+  trkRenderLimit   = 100;
+  renderTrkCards(filtered);
+  updateTrkCards(trkAllData.filter(r => {
+    const stage = trEffectiveStage(r);
+    if (trFilterStage === 'ON_PROSES_GROUP') return TR_ON_PROSES_STAGES.includes(stage);
+    return true;
+  }));
+  const info = filtered.length < trkAllData.length
+    ? `${filtered.length} dari ${trkAllData.length} data`
+    : `${trkAllData.length} data`;
+  document.getElementById('trk-info').textContent = info;
+}
+
+function trLoadMore() {
+  trkRenderLimit += 100;
+  renderTrkCards(trkFilteredCache);
+}
+
+function trBadgeHtml(row) {
+  const stage = trEffectiveStage(row);
+  const meta  = TR_STAGE_META[stage];
+  const ago   = row.status_resi_updated_at ? ` <span style="opacity:.6;font-weight:400">· ${trTimeAgo(row.status_resi_updated_at)}</span>` : '';
+  return `<span class="badge" style="background:${meta.bg};color:${meta.color}">${meta.label}${ago}</span>`;
+}
+
+function trStepperHtml(row) {
+  const stage   = trEffectiveStage(row);
+  const meta    = TR_STAGE_META[stage];
+  const step    = row.status_resi_step || meta.step;
+  const allDone = stage === 'SAMPAI';
+  return `<div class="tr-stepper">${TR_STEP_LABELS.map((label, i) => {
+    const idx = i + 1;
+    let cls = 'tr-step';
+    if (allDone || idx < step) cls += ' tr-step-done';
+    else if (idx === step) cls += meta.problem ? ' tr-step-problem' : ' tr-step-active';
+    const icon = (allDone || idx < step) ? '✓' : idx;
+    return `<div class="${cls}"><div class="tr-step-line"></div><div class="tr-step-circle">${icon}</div><div class="tr-step-label">${label}</div></div>`;
+  }).join('')}</div>`;
+}
+
+function updateTrkCards(list) {
+  const total     = list.length;
+  const proses    = list.filter(r => trCardState(trEffectiveStage(r)) === 'proses').length;
+  const undell    = list.filter(r => trCardState(trEffectiveStage(r)) === 'undell').length;
+  const delivered = list.filter(r => trCardState(trEffectiveStage(r)) === 'delivered').length;
+  const retur     = list.filter(r => trCardState(trEffectiveStage(r)) === 'retur').length;
+  document.getElementById('trk-total').textContent     = total     || '—';
+  document.getElementById('trk-proses').textContent    = proses    || '—';
+  document.getElementById('trk-undell').textContent    = undell    || '—';
+  document.getElementById('trk-delivered').textContent = delivered || '—';
+  document.getElementById('trk-retur').textContent     = retur     || '—';
+}
+
+function showTrkAlerts(list) {
+  const wrap = document.getElementById('trk-alerts');
+  if (!wrap) return;
+  const alerts = [];
+
+  // Alert: paket bermasalah
+  const undellCount = list.filter(r => trCardState(trEffectiveStage(r)) === 'undell').length;
+  if (undellCount > 0) alerts.push(`<div class="trk-alert trk-alert-warn">⚠️ <strong>${undellCount} paket</strong> berstatus Bermasalah — segera hubungi customer.</div>`);
+
+  // Alert: on proses > 7 hari
+  const cutoff7 = new Date(); cutoff7.setDate(cutoff7.getDate() - 7);
+  const cutoff7Str = cutoff7.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  const oldProses = list.filter(r => trCardState(trEffectiveStage(r)) === 'proses' && r.tanggal && r.tanggal < cutoff7Str).length;
+  if (oldProses > 0) alerts.push(`<div class="trk-alert trk-alert-info">🕐 <strong>${oldProses} paket</strong> masih On Proses lebih dari 7 hari.</div>`);
+
+  // Alert: sudah lapor ekspedisi tapi masih BERMASALAH > 2 hari
+  const cutoff2d = new Date(Date.now() - 2 * 86400000);
+  const tidakBergerak = list.filter(r =>
+    trEffectiveStage(r) === 'BERMASALAH' &&
+    r.followup?.lapor_ekspedisi &&
+    r.followup?.updated_at &&
+    new Date(r.followup.updated_at) < cutoff2d
+  );
+  if (tidakBergerak.length > 0) {
+    alerts.push(`<div class="trk-alert" style="background:#fdf4ff;border:1px solid #a855f7;color:#7c3aed;cursor:pointer;align-items:center;justify-content:space-between"
+      onclick="trSetFilter('BERMASALAH');trSetFollowupFilter('lapor_ekspedisi')">
+      <span>🚨 <strong>${tidakBergerak.length} paket</strong> sudah lapor ekspedisi lebih dari 2 hari tapi masih <strong>Undell</strong> — perlu eskalasi ulang.</span>
+      <span style="font-size:11px;text-decoration:underline;white-space:nowrap;margin-left:12px;flex-shrink:0">Lihat →</span>
+    </div>`);
+  }
+
+  wrap.innerHTML = alerts.join('');
+}
+
+function renderTrkCards(list) {
+  const wrap = document.getElementById('trk-cards');
+  if (!wrap) return;
+  if (!list.length) {
+    wrap.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Tidak ada data yang cocok.</div>';
+    return;
+  }
+  const visible = list.slice(0, trkRenderLimit);
+  const hasMore = list.length > trkRenderLimit;
+  wrap.innerHTML = visible.map(r => {
+    const eks     = extractEkspedisi(r.pembayaran) || r.pembayaran || '';
+    const hp08    = r.hp ? (r.hp.startsWith('0') ? r.hp : '0' + r.hp) : '—';
+    const cat     = trCardState(trEffectiveStage(r));
+    const cardCls = cat === 'delivered' ? 'oc-kirim' : cat === 'retur' ? 'oc-rts' : cat === 'undell' ? 'oc-hold' : '';
+    const resiPart = r.resi
+      ? `<span class="trk-resi-link" style="font-size:11px">${r.resi} ↗</span>`
+      : '<span style="color:var(--muted);font-size:11px">Belum ada resi</span>';
+    const isBermasalah = trEffectiveStage(r) === 'BERMASALAH';
+    const waBtnHtml = (isBermasalah && r.hp)
+      ? `<a href="${trBuildWaUrl(r)}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;background:#25D366;color:#fff;font-size:11px;font-weight:600;padding:4px 9px;border-radius:6px;text-decoration:none;white-space:nowrap">💬 WA Customer</a>`
+      : '';
+    return `<div class="order-card ${cardCls}"${r.resi ? ` onclick="trOpenDetail('${r.resi.replace(/'/g,"\\'")}')" style="cursor:pointer"` : ''}>
+      <div class="oc-header">
+        <span class="oc-nama">${r.nama || '—'}</span>
+        <span class="oc-waktu">${r.tanggal || ''}</span>
+      </div>
+      ${r.cs_nama && r.cs_nama !== '—' ? `<div style="font-size:11px;color:var(--accent);font-weight:600;margin-bottom:4px">👤 ${r.cs_nama}</div>` : ''}
+      <div class="oc-row">
+        <span class="oc-hp">📱 ${hp08}</span>
+        <span style="color:var(--border-strong)">·</span>
+        <span style="font-size:12px">${eks}</span>
+      </div>
+      <div class="oc-row" style="margin-top:2px">${resiPart}</div>
+      ${trStepperHtml(r)}
+      <div class="oc-footer">
+        <span style="font-size:12px;color:var(--muted)">${r.jumlah || ''}</span>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${waBtnHtml}${trBadgeHtml(r)}</div>
+      </div>
+      ${trFollowupBadge(r) ? `<div style="margin-top:6px">${trFollowupBadge(r)}</div>` : ''}
+    </div>`;
+  }).join('') + (hasMore
+    ? `<div style="grid-column:1/-1;text-align:center;padding:1rem">
+        <button class="btn-secondary" onclick="trLoadMore()" style="font-size:13px;padding:9px 24px">
+          Muat lebih banyak (${list.length - trkRenderLimit} tersisa)
+        </button>
+      </div>`
+    : '');
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+let trModalResi = null;
+
+function trOpenDetail(resi) {
+  const row = trkAllData.find(r => r.resi === resi);
+  if (!row) return;
+  trModalResi = resi;
+  const eks = extractEkspedisi(row.pembayaran) || row.pembayaran || '';
+  document.getElementById('tr-modal-title').textContent = row.nama || 'Detail Pengiriman';
+  document.getElementById('tr-modal-sub').textContent = (row.resi ? row.resi + ' · ' : '') + eks + (row.cs_nama && row.cs_nama !== '—' ? ' · ' + row.cs_nama : '');
+  const detail  = row.status_resi_detail || null;
+  const history = detail && Array.isArray(detail.history) ? detail.history.slice().reverse() : [];
+  const meta    = TR_STAGE_META[trEffectiveStage(row)];
+  let historyHtml = '<div style="font-size:12px;color:var(--muted);margin-top:12px">Belum ada history — klik "Cek Ulang".</div>';
+  if (history.length) {
+    historyHtml = `<div style="margin-top:14px">${history.map((h,i) => `
+      <div class="tr-history-item">
+        <div class="tr-history-dot" style="background:${i===0 ? meta.color : 'var(--border-strong)'}"></div>
+        <div>
+          <div style="font-size:12.5px;${i===0?'font-weight:700':''}">${(h.desc || h.content || h.content2 || '-')}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${h.date || ''}${h.location_name ? ' · '+h.location_name : ''}</div>
+        </div>
+      </div>`).join('')}</div>`;
+  }
+  const isBermasalah = trEffectiveStage(row) === 'BERMASALAH';
+  document.getElementById('tr-modal-body').innerHTML = `
+    <div style="margin-top:10px;margin-bottom:12px">${trBadgeHtml(row)}</div>
+    ${trFollowupModalHtml(row)}
+    ${trStepperHtml(row)}
+    ${historyHtml}
+  `;
+  const actionsEl = document.getElementById('tr-modal-actions');
+  if (actionsEl) {
+    actionsEl.innerHTML = `
+      ${(isBermasalah && row.hp) ? `<a href="${trBuildWaUrl(row)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#25D366;color:#fff;font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;text-decoration:none">💬 WA Customer</a>` : ''}
+      <button class="btn-secondary" onclick="trManualCheckFromModal()">🔄 Cek Ulang</button>
+    `;
+  }
+  document.getElementById('tr-modal').style.display = 'flex';
+}
+
+function trCloseModal() {
+  document.getElementById('tr-modal').style.display = 'none';
+  trModalResi = null;
+}
+
+async function trSaveTracking(resi, ekspedisi, result) {
+  await sb.from('cs_order_tracking_crm').upsert({
+    resi, ekspedisi,
+    status_resi: result.stage,
+    status_resi_step: result.step,
+    status_resi_updated_at: new Date().toISOString(),
+    status_resi_detail: result.detail
+  }, { onConflict: 'resi' });
+}
+
+async function trManualCheckFromModal() {
+  const row = trkAllData.find(r => r.resi === trModalResi);
+  if (!row || !row.resi) { showToast('Belum ada resi untuk order ini.', 'error'); return; }
+  const eks    = extractEkspedisi(row.pembayaran) || row.pembayaran;
+  const result = await checkResiTracking(row.resi, eks);
+  if (!result) { showToast('Gagal cek resi — pastikan ekspedisi terisi & resi valid.', 'error'); return; }
+  await trSaveTracking(row.resi, eks, result);
+  row.status_resi            = result.stage;
+  row.status_resi_step       = result.step;
+  row.status_resi_updated_at = new Date().toISOString();
+  row.status_resi_detail     = result.detail;
+  trOpenDetail(row.resi);
+  updateTrkCards(trkAllData);
+  applyTrkFilter();
+}
+
+async function trRefreshAll() {
+  const btn = document.getElementById('trk-refresh-all-btn');
+  if (!btn) return;
+  const origLabel = btn.textContent;
+  btn.disabled = true;
+  try {
+    const targets = trkAllData.filter(r => r.resi && r.status_resi !== 'SAMPAI' && r.status_resi !== 'RETUR');
+    if (!targets.length) { showToast('Tidak ada resi yang perlu dicek.', 'info'); return; }
+    const BATCH = 20;
+    let done = 0;
+    for (let i = 0; i < targets.length; i += BATCH) {
+      const batch = targets.slice(i, i + BATCH);
+      await Promise.all(batch.map(async row => {
+        const eks    = extractEkspedisi(row.pembayaran) || row.pembayaran;
+        const result = await checkResiTracking(row.resi, eks);
+        done++;
+        btn.textContent = `Mengecek... (${done}/${targets.length})`;
+        if (!result) return;
+        await trSaveTracking(row.resi, eks, result);
+        row.status_resi            = result.stage;
+        row.status_resi_step       = result.step;
+        row.status_resi_updated_at = new Date().toISOString();
+        row.status_resi_detail     = result.detail;
+      }));
+      applyTrkFilter();
+    }
+    updateTrkCards(trkAllData);
+    showTrkAlerts(trkAllData);
+    applyTrkFilter();
+    showToast(`✅ Selesai cek ${targets.length} resi!`, 'success');
+  } finally {
+    btn.disabled = false; btn.textContent = origLabel;
+  }
+}
+
+// ── FOLLOWUP RETUR ────────────────────────────────────────────────────────────
+const FOLLOWUP_FIELDS = [
+  { key:'cs_sudah_lapor',      label:'CS Sudah Lapor' },
+  { key:'fu1_cs',              label:'FU 1 CS' },
+  { key:'fu2_cs',              label:'FU 2 CS' },
+  { key:'fu3_cs',              label:'FU 3 CS' },
+  { key:'cs_lapor_setelah_fu', label:'CS Lapor Setelah FU' },
+  { key:'lapor_ekspedisi',     label:'Lapor Ekspedisi' },
+];
+
+function trFollowupBadge(row) {
+  if (trEffectiveStage(row) !== 'BERMASALAH') return '';
+  const f = row.followup;
+  if (f?.lapor_ekspedisi)     return '<span class="badge" style="background:var(--success-light);color:var(--success)">✅ Lapor Ekspedisi</span>';
+  if (f?.fu3_cs)              return '<span class="badge" style="background:#fef3c7;color:#b45309">📞 FU 3x</span>';
+  if (f?.fu2_cs)              return '<span class="badge" style="background:#fef3c7;color:#92400e">📞 FU 2x</span>';
+  if (f?.fu1_cs)              return '<span class="badge" style="background:#fffbeb;color:#d97706">📞 FU 1x</span>';
+  if (f?.cs_sudah_lapor)      return '<span class="badge" style="background:var(--accent-light);color:var(--accent)">📋 CS Sudah Lapor</span>';
+  return '<span class="badge" style="background:var(--danger-light);color:var(--danger)">⚠️ Belum Ditangani</span>';
+}
+
+function trFollowupModalHtml(row) {
+  if (trEffectiveStage(row) !== 'BERMASALAH') return '';
+  const f = row.followup || {};
+  return `
+    <div style="margin-bottom:14px;padding:10px 12px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;font-family:var(--mono)">Progress Penanganan</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px 16px">
+        ${FOLLOWUP_FIELDS.map(item => `
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none">
+            <input type="checkbox" ${f[item.key] ? 'checked' : ''}
+              onchange="trSaveFollowup('${row.resi}','${item.key}',this.checked)"
+              style="width:13px;height:13px;cursor:pointer;accent-color:var(--accent);flex-shrink:0">
+            <span style="font-size:12px;color:var(--text)">${item.label}</span>
+          </label>
+        `).join('')}
+      </div>
+      ${f.updated_by ? `<div style="font-size:10px;color:var(--muted);margin-top:7px">Update: <strong>${f.updated_by}</strong> · ${trTimeAgo(f.updated_at)}</div>` : ''}
+    </div>`;
+}
+
+async function trSaveFollowup(resi, field, value) {
+  const row = trkAllData.find(r => r.resi === resi);
+  if (!row) return;
+  if (!row.followup) row.followup = { resi };
+  row.followup[field]     = value;
+  row.followup.updated_at = new Date().toISOString();
+  row.followup.updated_by = currentProfile?.nama || currentUser?.email || '—';
+
+  const { error } = await sb.from('retur_followup_crm').upsert({
+    resi,
+    cs_sudah_lapor:      row.followup.cs_sudah_lapor      || false,
+    fu1_cs:              row.followup.fu1_cs              || false,
+    fu2_cs:              row.followup.fu2_cs              || false,
+    fu3_cs:              row.followup.fu3_cs              || false,
+    cs_lapor_setelah_fu: row.followup.cs_lapor_setelah_fu || false,
+    lapor_ekspedisi:     row.followup.lapor_ekspedisi     || false,
+    updated_at:          row.followup.updated_at,
+    updated_by:          row.followup.updated_by,
+  }, { onConflict: 'resi' });
+
+  if (error) { showToast('Gagal simpan: ' + error.message, 'error'); return; }
+
+  // Update badge di card tanpa reset filter/limit
+  renderTrkCards(trkFilteredCache);
+  showToast('Tersimpan!', 'success');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'info') {
+  const wrap = document.getElementById('toast-wrap');
+  const t    = document.createElement('div');
+  t.className   = `toast ${type}`;
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ── EXPORT CSV ────────────────────────────────────────────────────────────────
+function trExportCSV() {
+  const data = trkFilteredCache;
+  if (!data.length) { showToast('Tidak ada data untuk diexport.', 'error'); return; }
+
+  const FOLLOWUP_LABEL = {
+    belum:               'Belum Ditangani',
+    cs_sudah_lapor:      'CS Sudah Lapor',
+    fu1_cs:              'FU 1x',
+    fu2_cs:              'FU 2x',
+    fu3_cs:              'FU 3x',
+    cs_lapor_setelah_fu: 'Lapor Stlh FU',
+    lapor_ekspedisi:     'Lapor Ekspedisi',
+  };
+
+  const headers = ['Tanggal','Nama','HP','CS','Ekspedisi','Resi','Status','Kota/Kab','Produk','Status Followup','Keterangan Masalah','Last Update'];
+  const rows = data.map(r => {
+    const stage   = trEffectiveStage(r);
+    const meta    = TR_STAGE_META[stage];
+    const eks     = extractEkspedisi(r.pembayaran) || r.pembayaran || '';
+    const hp08    = r.hp ? (r.hp.startsWith('0') ? r.hp : '0' + r.hp) : '';
+    const fuLabel = stage === 'BERMASALAH' ? (FOLLOWUP_LABEL[trFollowupLevel(r)] || '') : '';
+    const masalah = stage === 'BERMASALAH' ? extractMasalah(r) : '';
+    const lastUpd = r.status_resi_updated_at
+      ? new Date(r.status_resi_updated_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
+      : '';
+    return [
+      r.tanggal        || '',
+      r.nama           || '',
+      hp08,
+      r.cs_nama        || '',
+      eks,
+      r.resi           || '',
+      meta?.label?.replace(/[\u{1F000}-\u{1FFFF}]|\p{Emoji}/gu, '').trim() || stage,
+      r.kabupaten      || '',
+      r.jumlah         || '',
+      fuLabel,
+      masalah,
+      lastUpd,
+    ];
+  });
+
+  const escape = v => '"' + String(v).replace(/"/g, '""') + '"';
+  const csv    = [headers, ...rows].map(r => r.map(escape).join(',')).join('\r\n');
+  const blob   = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url    = URL.createObjectURL(blob);
+  const label  = document.getElementById('trk-drp-label')?.textContent || 'data';
+  const a      = document.createElement('a');
+  a.href       = url;
+  a.download   = `tracking-${label.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`✅ Export ${data.length} data berhasil!`, 'success');
+}
+
+// Keyboard: Escape = tutup modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') trCloseModal();
+});
+</script>
+</body>
+</html>

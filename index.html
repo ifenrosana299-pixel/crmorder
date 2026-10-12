@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM Adsy</title>
+<link rel="icon" type="image/png" href="img/logo-adsy.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/auth.js"></script>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:4px">
+      <img src="img/logo-adsy.png" alt="Adsy" style="width:36px;height:36px;object-fit:contain">
+      <div class="auth-logo" style="margin-bottom:0">CRM Adsy</div>
+    </div>
+    <div class="auth-sub">sistem input orderan CRM</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Masuk</button>
+      <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Daftar</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div class="auth-form active" id="form-login">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="l-email" placeholder="email@adsy.com" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="l-pass" placeholder="password" autocomplete="current-password" />
+      </div>
+      <button class="btn-primary" id="btn-login" onclick="doLogin()">Masuk</button>
+      <div class="auth-err" id="login-err"></div>
+    </div>
+
+    <!-- REGISTER -->
+    <div class="auth-form" id="form-register">
+      <div class="field">
+        <label>Nama CRM</label>
+        <input type="text" id="r-nama" placeholder="Nama CRM kamu" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>No WhatsApp</label>
+          <input type="tel" id="r-wa" placeholder="08xxxxxxxxxx" />
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="r-email" placeholder="email@adsy.com" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="r-pass" placeholder="min 6 karakter" />
+        </div>
+        <div class="field">
+          <label>Konfirmasi</label>
+          <input type="password" id="r-pass2" placeholder="ulangi password" />
+        </div>
+      </div>
+      <button class="btn-primary" id="btn-register" onclick="doRegister()">Daftar Sekarang</button>
+      <div class="auth-err" id="register-err"></div>
+      <div class="auth-ok" id="register-ok"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Redirect kalau sudah login
+(async () => {
+  const session = await getSession();
+  if (!session) return;
+  const profile = await getProfile(session.user.id);
+  const role = profile?.role || 'crm';
+  if (role === 'admin')  window.location.href = 'admin.html';
+  else if (role === 'retur') window.location.href = 'tracking.html';
+  else window.location.href = 'app.html';
+})();
+
+function switchTab(tab) {
+  ['login','register'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+    document.getElementById('form-'+t).classList.toggle('active', t===tab);
+  });
+}
+
+async function doLogin() {
+  const email = document.getElementById('l-email').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  const errEl = document.getElementById('login-err');
+  const btn   = document.getElementById('btn-login');
+
+  if (!email || !pass) { showErr(errEl, 'Email dan password wajib diisi.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Masuk...';
+  errEl.style.display = 'none';
+
+  try {
+    const { user } = await signIn(email, pass);
+    const profile  = await getProfile(user.id);
+    const role     = profile?.role || 'crm';
+    if (role === 'admin')       window.location.href = 'admin.html';
+    else if (role === 'retur')  window.location.href = 'tracking.html';
+    else                        window.location.href = 'app.html';
+  } catch(e) {
+    showErr(errEl, e.message === 'Invalid login credentials'
+      ? 'Email atau password salah.' : e.message);
+    btn.disabled = false;
+    btn.textContent = 'Masuk';
+  }
+}
+
+async function doRegister() {
+  const nama  = document.getElementById('r-nama').value.trim();
+  const wa    = document.getElementById('r-wa').value.trim();
+  const email = document.getElementById('r-email').value.trim();
+  const pass  = document.getElementById('r-pass').value;
+  const pass2 = document.getElementById('r-pass2').value;
+  const errEl = document.getElementById('register-err');
+  const okEl  = document.getElementById('register-ok');
+  const btn   = document.getElementById('btn-register');
+
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+
+  if (!nama || !email || !pass) { showErr(errEl, 'Nama CRM, email, dan password wajib diisi.'); return; }
+  if (pass.length < 6)          { showErr(errEl, 'Password minimal 6 karakter.'); return; }
+  if (pass !== pass2)            { showErr(errEl, 'Konfirmasi password tidak cocok.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Mendaftar...';
+
+  try {
+    await signUp(email, pass, nama, wa);
+    okEl.textContent  = '✓ Pendaftaran berhasil! Silakan masuk.';
+    okEl.style.display = 'block';
+    btn.textContent = 'Daftar Sekarang';
+    btn.disabled = false;
+    setTimeout(() => switchTab('login'), 1500);
+  } catch(e) {
+    showErr(errEl, e.message);
+    btn.disabled = false;
+    btn.textContent = 'Daftar Sekarang';
+  }
+}
+
+function showErr(el, msg) {
+  el.textContent   = msg;
+  el.style.display = 'block';
+}
+
+// Enter key support
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const activeTab = document.querySelector('.auth-form.active').id;
+  if (activeTab === 'form-login') doLogin();
+  else doRegister();
+});
+</script>
+</body>
+</html>
