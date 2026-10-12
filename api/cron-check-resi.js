@@ -239,7 +239,7 @@ async function notifyCsProblem(sbHeaders, SUPABASE_URL, order, resi, stage) {
   if (!csId) return false;
 
   const profFilter = new URLSearchParams({ select: 'nama,no_wa', id: `eq.${csId}`, limit: '1' });
-  const profRes = await fetch(`${SUPABASE_URL}/rest/v1/cs_profiles?${profFilter.toString()}`, { headers: sbHeaders });
+  const profRes = await fetch(`${SUPABASE_URL}/rest/v1/crm_profiles?${profFilter.toString()}`, { headers: sbHeaders });
   const profRows = await profRes.json();
   const profile = Array.isArray(profRows) ? profRows[0] : null;
   if (!profile || !profile.no_wa) return false;

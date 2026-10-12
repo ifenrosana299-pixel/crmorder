@@ -186,7 +186,7 @@ module.exports = async function handler(req, res) {
     // Cek status koneksi Gmail
     if (action === 'status') {
       if (!cs_id) return res.status(400).json({ error: 'cs_id wajib' });
-      const rows = await sbGet('cs_profiles', `?id=eq.${cs_id}&select=gmail_email,gmail_last_checked&limit=1`);
+      const rows = await sbGet('crm_profiles', `?id=eq.${cs_id}&select=gmail_email,gmail_last_checked&limit=1`);
       const row  = rows[0] || {};
       return res.json({
         connected: !!row.gmail_email,
@@ -198,7 +198,7 @@ module.exports = async function handler(req, res) {
     // Putus koneksi Gmail
     if (action === 'disconnect') {
       if (!cs_id) return res.status(400).json({ error: 'cs_id wajib' });
-      await sbPatch('cs_profiles', `?id=eq.${cs_id}`,
+      await sbPatch('crm_profiles', `?id=eq.${cs_id}`,
         { gmail_email: null, gmail_refresh_token: null, gmail_last_checked: null });
       return res.json({ ok: true });
     }
@@ -229,7 +229,7 @@ module.exports = async function handler(req, res) {
         const uiData = await uiRes.json();
 
         // state = cs_id
-        await sbPatch('cs_profiles', `?id=eq.${state}`, {
+        await sbPatch('crm_profiles', `?id=eq.${state}`, {
           gmail_email: uiData.email || null,
           gmail_refresh_token: tokens.refresh_token,
           gmail_last_checked: null,
@@ -261,7 +261,7 @@ module.exports = async function handler(req, res) {
 
     // Ambil CS sorted by gmail_last_checked ASC (yang paling lama/belum pernah dicek duluan)
     // Rotating queue: tiap run proses sebanyak yang muat dalam time budget
-    const csProfiles = await sbGet('cs_profiles',
+    const csProfiles = await sbGet('crm_profiles',
       `?gmail_refresh_token=not.is.null&select=id,nama,gmail_email,gmail_refresh_token,gmail_last_checked&order=gmail_last_checked.asc.nullsfirst`);
 
     if (!csProfiles.length) {
@@ -281,7 +281,7 @@ module.exports = async function handler(req, res) {
         const allMessages = await searchEmails(token);
         log.emails_found = allMessages.length;
         if (!allMessages.length) {
-          await sbPatch('cs_profiles', `?id=eq.${cs.id}`, { gmail_last_checked: new Date().toISOString() });
+          await sbPatch('crm_profiles', `?id=eq.${cs.id}`, { gmail_last_checked: new Date().toISOString() });
           results.push(log);
           continue;
         }
@@ -297,7 +297,7 @@ module.exports = async function handler(req, res) {
         log.emails_skip = allIds.length - messages.length;
 
         if (!messages.length) {
-          await sbPatch('cs_profiles', `?id=eq.${cs.id}`, { gmail_last_checked: new Date().toISOString() });
+          await sbPatch('crm_profiles', `?id=eq.${cs.id}`, { gmail_last_checked: new Date().toISOString() });
           results.push(log);
           continue;
         }
@@ -349,14 +349,14 @@ module.exports = async function handler(req, res) {
           await Promise.all(batch.map(processMsg));
         }
 
-        await sbPatch('cs_profiles', `?id=eq.${cs.id}`,
+        await sbPatch('crm_profiles', `?id=eq.${cs.id}`,
           { gmail_last_checked: new Date().toISOString() });
 
       } catch(e) {
         log.errors.push({ error: e.message });
         // Kalau 403 (scope kurang) → hapus refresh token supaya CS tahu perlu reconnect
         if (e.gmailCode === 403) {
-          await sbPatch('cs_profiles', `?id=eq.${cs.id}`, { gmail_refresh_token: null }).catch(() => {});
+          await sbPatch('crm_profiles', `?id=eq.${cs.id}`, { gmail_refresh_token: null }).catch(() => {});
         }
       }
       results.push(log);
