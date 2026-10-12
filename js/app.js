@@ -1198,23 +1198,24 @@ function validateRincian() {
   if (!rincianVal || !totalVal) return;
 
   const parts = rincianVal.split('|').map(s => parseInt(s.trim(), 10));
-  if (parts.length !== 5 || parts.some(isNaN)) {
-    valSetField('rincian', 'err', '⚠ Format harus: ongkir|pot.ongkir|admin|pot.admin|harga');
+  if (![5, 6].includes(parts.length) || parts.some(isNaN)) {
+    valSetField('rincian', 'err', '⚠ Format harus: ongkir|pot.ongkir|admin|pot.admin|harga atau ongkir|pot.ongkir|admin|pot.admin|harga|pot.produk');
     return;
   }
 
-  const [ongkir, potOngkir, admin, potAdmin, harga] = parts;
-  const totalHitung = harga + ongkir - potOngkir + admin - potAdmin;
+  const [ongkir, potOngkir, admin, potAdmin, harga, potProduk = 0] = parts;
+  const totalHitung = harga - potProduk + ongkir - potOngkir + admin - potAdmin;
   const totalInput  = parseInt(totalVal.replace(/\D/g, ''), 10);
 
   const fmt = n => n.toLocaleString('id-ID');
+  const potProdukStr = potProduk ? ` - ${fmt(potProduk)} pot.produk` : '';
 
   if (totalHitung === totalInput) {
-    valSetField('rincian', 'ok', `✓ ${fmt(harga)} + ${fmt(ongkir-potOngkir)} ongkir + ${fmt(admin-potAdmin)} admin = ${fmt(totalHitung)}`);
+    valSetField('rincian', 'ok', `✓ ${fmt(harga)}${potProdukStr} + ${fmt(ongkir-potOngkir)} ongkir + ${fmt(admin-potAdmin)} admin = ${fmt(totalHitung)}`);
     valSetField('total',   'ok');
   } else {
     valSetField('rincian', 'err',
-      `⚠ Hasil hitung: ${fmt(totalHitung)} (harga ${fmt(harga)} + ongkir ${fmt(ongkir-potOngkir)} + admin ${fmt(admin-potAdmin)})`
+      `⚠ Hasil hitung: ${fmt(totalHitung)} (harga ${fmt(harga)}${potProdukStr} + ongkir ${fmt(ongkir-potOngkir)} + admin ${fmt(admin-potAdmin)})`
     );
     valSetField('total', 'err', `⚠ Tidak cocok dengan rincian. Seharusnya: ${fmt(totalHitung)}`);
   }
