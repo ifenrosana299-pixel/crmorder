@@ -1131,6 +1131,55 @@ async function validateSKU() {
   }
 }
 
+// ── VALIDASI INSTRUKSI PENGIRIMAN (nama CS harus cocok dgn profil login) ─────
+function validateInstruksi() {
+  const instrVal = (document.getElementById('f-instruksi')?.value || '').trim();
+  const ketVal   = (document.getElementById('f-keterangan')?.value || '').trim();
+
+  // Reset hint instruksi & keterangan (bagian nama CS)
+  const elInstr = document.getElementById('f-instruksi');
+  const hintInstr = document.getElementById('hint-instruksi');
+  if (elInstr) elInstr.classList.remove('val-ok','val-err','val-warn');
+  if (hintInstr) { hintInstr.className = 'val-hint'; hintInstr.innerHTML = ''; }
+
+  if (!currentProfile?.nama) return;
+
+  const namaCRM = currentProfile.nama.toUpperCase().trim();
+
+  // Cek instruksi pengiriman — harus mengandung nama CRM yang login
+  if (instrVal) {
+    const instrUp = instrVal.toUpperCase();
+    // Ambil kata-kata dari nama CRM (minimal 3 huruf) untuk matching fleksibel
+    const namaWords = namaCRM.split(/\s+/).filter(w => w.length >= 3);
+    const match = namaWords.length > 0
+      ? namaWords.some(w => instrUp.includes(w))
+      : instrUp.includes(namaCRM);
+
+    if (!match) {
+      valSetField('instruksi', 'warn', `⚠ Nama di instruksi tidak cocok dengan profil Anda (${currentProfile.nama})`);
+    } else {
+      valSetField('instruksi', 'ok', `✓ ${currentProfile.nama}`);
+    }
+  }
+
+  // Cek keterangan — harus mengandung nama CRM yang login
+  if (ketVal) {
+    const ketUp = ketVal.toUpperCase();
+    const namaWords = namaCRM.split(/\s+/).filter(w => w.length >= 3);
+    const matchKet = namaWords.length > 0
+      ? namaWords.some(w => ketUp.includes(w))
+      : ketUp.includes(namaCRM);
+
+    if (!matchKet) {
+      // Hanya set warning kalau belum ada error dari validateSKU
+      const elKet = document.getElementById('f-keterangan');
+      if (elKet && !elKet.classList.contains('val-err')) {
+        valSetField('keterangan', 'warn', `⚠ Nama CRM "${currentProfile.nama}" tidak ditemukan di keterangan`);
+      }
+    }
+  }
+}
+
 // ── VALIDASI EKSPEDISI (No Order vs Pembayaran) ───────────────────────────────
 const EKSPEDISI_LIST = [
   { key: 'JNE',      pattern: /\bJNE\b/i },
@@ -1558,6 +1607,10 @@ document.getElementById('f-hp')?.addEventListener('input', scheduleGradeCheck);
   const el = document.getElementById(id);
   if (el) el.addEventListener('input', () => validateSKU());
 });
+['f-instruksi','f-keterangan'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', () => validateInstruksi());
+});
 
 function getFormValues() {
   return {
@@ -1603,6 +1656,7 @@ const SUBMIT_CHECK_FIELDS = [
   { id: 'rincian',      label: 'Rincian Pembayaran' },
   { id: 'total',        label: 'Total Pembayaran' },
   { id: 'keterangan',   label: 'Keterangan' },
+  { id: 'instruksi',    label: 'Instruksi Pengiriman' },
 ];
 
 // Ambil teks hint asli (rekomendasi dari validateWilayah/Ekspedisi/Rincian/SKU) tanpa tombol
