@@ -1161,6 +1161,12 @@ function validateInstruksi() {
   if (csInstruksi !== csKeterangan) {
     valSetField('instruksi', 'warn',
       `⚠ Nama CS berbeda — instruksi: "${csInstruksi}" vs keterangan: "${csKeterangan}"`);
+    // Keterangan juga dikasih warning, tapi jangan timpa error dari validateSKU
+    const elKet = document.getElementById('f-keterangan');
+    if (elKet && !elKet.classList.contains('val-err')) {
+      valSetField('keterangan', 'warn',
+        `⚠ Nama CS berbeda — keterangan: "${csKeterangan}" vs instruksi: "${csInstruksi}"`);
+    }
   } else {
     valSetField('instruksi', 'ok', `✓ CS ${csInstruksi}`);
   }
