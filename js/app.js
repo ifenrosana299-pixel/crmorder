@@ -1131,52 +1131,37 @@ async function validateSKU() {
   }
 }
 
-// ── VALIDASI INSTRUKSI PENGIRIMAN (nama CS harus cocok dgn profil login) ─────
+// ── VALIDASI INSTRUKSI vs KETERANGAN (nama CS harus cocok) ──────────────────
+// Extract nama CS dari teks — pola: "CS NAMA" (case insensitive)
+function extractCSName(text) {
+  if (!text) return null;
+  // Cari pola "CS <nama>" — ambil kata setelah "CS "
+  const m = text.match(/\bCS\s+([A-Za-z]+)/i);
+  return m ? m[1].toUpperCase() : null;
+}
+
 function validateInstruksi() {
   const instrVal = (document.getElementById('f-instruksi')?.value || '').trim();
   const ketVal   = (document.getElementById('f-keterangan')?.value || '').trim();
 
-  // Reset hint instruksi & keterangan (bagian nama CS)
+  // Reset hint instruksi
   const elInstr = document.getElementById('f-instruksi');
   const hintInstr = document.getElementById('hint-instruksi');
   if (elInstr) elInstr.classList.remove('val-ok','val-err','val-warn');
   if (hintInstr) { hintInstr.className = 'val-hint'; hintInstr.innerHTML = ''; }
 
-  if (!currentProfile?.nama) return;
+  if (!instrVal || !ketVal) return;
 
-  const namaCRM = currentProfile.nama.toUpperCase().trim();
+  const csInstruksi  = extractCSName(instrVal);
+  const csKeterangan = extractCSName(ketVal);
 
-  // Cek instruksi pengiriman — harus mengandung nama CRM yang login
-  if (instrVal) {
-    const instrUp = instrVal.toUpperCase();
-    // Ambil kata-kata dari nama CRM (minimal 3 huruf) untuk matching fleksibel
-    const namaWords = namaCRM.split(/\s+/).filter(w => w.length >= 3);
-    const match = namaWords.length > 0
-      ? namaWords.some(w => instrUp.includes(w))
-      : instrUp.includes(namaCRM);
+  if (!csInstruksi || !csKeterangan) return; // salah satu tidak ada pola "CS xxx" → skip
 
-    if (!match) {
-      valSetField('instruksi', 'warn', `⚠ Nama di instruksi tidak cocok dengan profil Anda (${currentProfile.nama})`);
-    } else {
-      valSetField('instruksi', 'ok', `✓ ${currentProfile.nama}`);
-    }
-  }
-
-  // Cek keterangan — harus mengandung nama CRM yang login
-  if (ketVal) {
-    const ketUp = ketVal.toUpperCase();
-    const namaWords = namaCRM.split(/\s+/).filter(w => w.length >= 3);
-    const matchKet = namaWords.length > 0
-      ? namaWords.some(w => ketUp.includes(w))
-      : ketUp.includes(namaCRM);
-
-    if (!matchKet) {
-      // Hanya set warning kalau belum ada error dari validateSKU
-      const elKet = document.getElementById('f-keterangan');
-      if (elKet && !elKet.classList.contains('val-err')) {
-        valSetField('keterangan', 'warn', `⚠ Nama CRM "${currentProfile.nama}" tidak ditemukan di keterangan`);
-      }
-    }
+  if (csInstruksi !== csKeterangan) {
+    valSetField('instruksi', 'warn',
+      `⚠ Nama CS berbeda — instruksi: "${csInstruksi}" vs keterangan: "${csKeterangan}"`);
+  } else {
+    valSetField('instruksi', 'ok', `✓ CS ${csInstruksi}`);
   }
 }
 
