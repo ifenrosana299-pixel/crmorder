@@ -794,6 +794,7 @@ async function doParse() {
     validateRincian();
     validateSKU();
     validateInstruksi();
+    validateMetodeBayar();
     validateReceiverScore();
     validateOngkirTarif();
 
@@ -1224,6 +1225,39 @@ function validateEkspedisi() {
   }
 }
 
+// ── VALIDASI COD vs TRANSFER (Nama Customer vs Pembayaran) ──────────────────
+function validateMetodeBayar() {
+  const namaVal = (document.getElementById('f-nama')?.value || '').trim();
+  const bayVal  = (document.getElementById('f-pembayaran')?.value || '').trim();
+
+  if (!namaVal || !bayVal) return;
+
+  const namaUp = namaVal.toUpperCase();
+  const bayUp  = bayVal.toUpperCase();
+
+  // Cek nama: ada "TF" atau "TRANSFER" → Transfer, tidak ada → COD
+  const namaIsTransfer = /\bTF\b|\bTRANSFER\b/i.test(namaVal);
+  const metodeNama     = namaIsTransfer ? 'TRANSFER' : 'COD';
+
+  // Cek pembayaran: ada "COD" → COD, ada "TRANSFER"/"TF" → Transfer
+  const bayIsCOD      = /\bCOD\b/i.test(bayVal);
+  const bayIsTransfer = /\bTF\b|\bTRANSFER\b/i.test(bayVal);
+
+  // Kalau pembayaran tidak ada indikasi COD atau Transfer → skip
+  if (!bayIsCOD && !bayIsTransfer) return;
+
+  const metodeBayar = bayIsCOD ? 'COD' : 'TRANSFER';
+
+  if (metodeNama !== metodeBayar) {
+    // Jangan timpa error ekspedisi yang sudah ada
+    const elBay = document.getElementById('f-pembayaran');
+    if (elBay && !elBay.classList.contains('val-err')) {
+      valSetField('pembayaran', 'warn',
+        `⚠ Metode bayar tidak cocok — Nama: ${metodeNama}, Pembayaran: ${metodeBayar}`);
+    }
+  }
+}
+
 // ── VALIDASI RINCIAN vs TOTAL ─────────────────────────────────────────────────
 function validateRincian() {
   const rincianVal = (document.getElementById('f-rincian')?.value || '').trim();
@@ -1602,6 +1636,10 @@ document.getElementById('f-hp')?.addEventListener('input', scheduleGradeCheck);
 ['f-instruksi','f-keterangan'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('input', () => validateInstruksi());
+});
+['f-nama','f-pembayaran'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', () => validateMetodeBayar());
 });
 
 function getFormValues() {
