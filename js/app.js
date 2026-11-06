@@ -257,7 +257,7 @@ function drpNav(dir) {
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
 function switchPage(name) {
-  ['dashboard','upload','tracking','setting','ongkir'].forEach(p => {
+  ['dashboard','upload','tracking','bermasalah','setting','ongkir'].forEach(p => {
     document.getElementById('page-'+p).classList.toggle('active', p===name);
     // Sidebar nav (desktop)
     const navEl = document.getElementById('nav-'+p);
@@ -266,12 +266,13 @@ function switchPage(name) {
     const bnavEl = document.getElementById('bnav-'+p);
     if (bnavEl) bnavEl.classList.toggle('active', p===name);
   });
-  const titles = { dashboard:'Dashboard', upload:'Upload Order', tracking:'Tracking Order', setting:'Setting', ongkir:'Cek Ongkir' };
+  const titles = { dashboard:'Dashboard', upload:'Upload Order', tracking:'Tracking Order', bermasalah:'Resi Bermasalah', setting:'Setting', ongkir:'Cek Ongkir' };
   document.getElementById('topbar-title').textContent = titles[name] || '';
-  if (name === 'dashboard') loadDashboard();
-  if (name === 'upload')    { loadHistoryMini(); checkAndShowLockBanner(); }
-  if (name === 'tracking')  loadTracking();
-  if (name === 'setting')   loadSetting();
+  if (name === 'dashboard')  loadDashboard();
+  if (name === 'upload')     { loadHistoryMini(); checkAndShowLockBanner(); }
+  if (name === 'tracking')   loadTracking();
+  if (name === 'bermasalah') loadBermasalah();
+  if (name === 'setting')    loadSetting();
 }
 
 // ── DARK MODE ────────────────────────────────────────────────────────────────
@@ -3198,7 +3199,7 @@ async function trFetchTrackingRows(masukList, range) {
   const chunkResults = await Promise.all(chunks.map(chunk => {
     let q = sb.from('all_orderan')
       .select('no, tanggal, nama, hp, jumlah, pembayaran, resi, kabupaten, status_akhir')
-      .eq('sumber', 'cs_input')
+      .eq('sumber', 'crm')
       .in('hp', chunk)
       .limit(500);
     if (range?.start) q = q.gte('tanggal', range.start);
@@ -3369,11 +3370,16 @@ function updateTrkCards(list) {
   const undell    = list.filter(r => trCardState(trEffectiveStage(r)) === 'undell').length;
   const delivered = list.filter(r => trCardState(trEffectiveStage(r)) === 'delivered').length;
   const retur     = list.filter(r => trCardState(trEffectiveStage(r)) === 'retur').length;
-  document.getElementById('trk-total').textContent     = total     || '—';
-  document.getElementById('trk-proses').textContent    = proses    || '—';
-  document.getElementById('trk-undell').textContent    = undell    || '—';
-  document.getElementById('trk-delivered').textContent = delivered || '—';
-  document.getElementById('trk-retur').textContent     = retur     || '—';
+  const pct = (n) => total > 0 ? (n / total * 100).toFixed(1) + '%' : '';
+  document.getElementById('trk-total').textContent         = total     || '—';
+  document.getElementById('trk-proses').textContent        = proses    || '—';
+  document.getElementById('trk-undell').textContent        = undell    || '—';
+  document.getElementById('trk-delivered').textContent     = delivered || '—';
+  document.getElementById('trk-retur').textContent         = retur     || '—';
+  document.getElementById('trk-proses-pct').textContent    = pct(proses);
+  document.getElementById('trk-undell-pct').textContent    = pct(undell);
+  document.getElementById('trk-delivered-pct').textContent = pct(delivered);
+  document.getElementById('trk-retur-pct').textContent     = pct(retur);
 }
 
 function showTrkAlerts(list) {
@@ -3549,5 +3555,463 @@ async function trRefreshAll() {
     showToast(`✅ Selesai cek ${targets.length} resi!`, 'success');
   } finally {
     btns.forEach(b => { b.disabled = false; b.textContent = origLabel; });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  RESI BERMASALAH
+// ══════════════════════════════════════════════════════════════════════════════
+
+function trFollowupLevel(row) {
+  const rw = row._rw;
+  if (!rw) return 'belum';
+  if (rw.lapor_ekspedisi) return 'lapor_ekspedisi';
+  if (rw.cs_responded)    return 'cs_bales';
+  const fc = rw.fu_count || 0;
+  if (fc >= 4) return 'fu3';
+  if (fc >= 3) return 'fu2';
+  if (fc >= 2) return 'fu1';
+  if (fc >= 1) return 'fu_info';
+  return 'belum';
+}
+
+const FOLLOWUP_STAT_META = [
+  { key:'belum',           label:'Belum Ditangani', color:'var(--danger)',  bg:'var(--danger-light)' },
+  { key:'fu_info',         label:'FU Info',         color:'#6366f1',        bg:'#eef2ff' },
+  { key:'fu1',             label:'FU 1x',           color:'#d97706',        bg:'#fffbeb' },
+  { key:'fu2',             label:'FU 2x',           color:'#b45309',        bg:'#fef3c7' },
+  { key:'fu3',             label:'FU 3x',           color:'#92400e',        bg:'#fde68a' },
+  { key:'cs_bales',        label:'CS Sudah Bales',  color:'#16a34a',        bg:'#f0fdf4' },
+  { key:'lapor_ekspedisi', label:'Lapor Ekspedisi', color:'var(--success)', bg:'var(--success-light)' },
+];
+
+function trFollowupBadge(row) {
+  const rw = row._rw;
+  if (!rw) return '';
+  if (rw.lapor_ekspedisi) return '<span class="badge" style="background:var(--success-light);color:var(--success)">✅ Lapor Ekspedisi</span>';
+  if (rw.cs_responded)    return '<span class="badge" style="background:#f0fdf4;color:#16a34a">💬 CS Sudah Bales</span>';
+  const fc = rw.fu_count || 0;
+  if (fc >= 4) return '<span class="badge" style="background:#fde68a;color:#92400e">📞 FU 3x</span>';
+  if (fc >= 3) return '<span class="badge" style="background:#fef3c7;color:#b45309">📞 FU 2x</span>';
+  if (fc >= 2) return '<span class="badge" style="background:#fffbeb;color:#d97706">📞 FU 1x</span>';
+  if (fc >= 1) return '<span class="badge" style="background:#eef2ff;color:#6366f1">📨 FU Info</span>';
+  return '';
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+let bmAllData      = [];
+let bmFilteredData = [];
+let bmFollowupFilter = null;
+
+async function loadBermasalah() {
+  if (!currentUser) return;
+  const monthEl = document.getElementById('bm-filter-month');
+  if (monthEl && !monthEl.value) {
+    const now = new Date();
+    monthEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+  const [year, month] = (monthEl?.value || '').split('-');
+  const selectedMonth = `${year}-${month}`;
+  const cardsEl = document.getElementById('bm-cards');
+  const infoEl  = document.getElementById('bm-info');
+  if (cardsEl) cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Memuat data...</div>';
+  if (infoEl)  infoEl.textContent = '';
+  document.getElementById('bm-followup-stats').style.display = 'none';
+  try {
+    const bmResp = await fetch('/api/bermasalah');
+    if (!bmResp.ok) throw new Error('Gagal fetch /api/bermasalah');
+    const bmData = await bmResp.json();
+    const myNama = (currentProfile.nama || '').toLowerCase();
+
+    // Filter bulan
+    const thisMonth = bmData.filter(t =>
+      (t._rw?.order_date || t.status_resi_updated_at || '').slice(0, 7) === selectedMonth
+    );
+
+    // Cari order milik CRM ini di all_orderan
+    const withName    = thisMonth.filter(t => t._rw?.cs_nama);
+    const noName      = thisMonth.filter(t => !t._rw?.cs_nama);
+    const noNameResiMap = {};
+    if (noName.length) {
+      const resiIds = noName.map(t => t.resi);
+      const CHUNK = 500;
+      for (let i = 0; i < resiIds.length; i += CHUNK) {
+        const chunk = resiIds.slice(i, i + CHUNK);
+        try {
+          const { data: aoRows } = await sb
+            .from('all_orderan')
+            .select('resi,cs,nama,hp,kabupaten,jumlah,tanggal,pembayaran')
+            .in('resi', chunk);
+          (aoRows || []).forEach(row => { noNameResiMap[row.resi] = row; });
+        } catch(_) {}
+      }
+    }
+
+    const mapItem = (t, aoRow) => ({
+      resi:                   t.resi,
+      nama:                   t._rw?.nama_pembeli || aoRow?.nama    || '—',
+      hp:                     t._rw?.hp_pembeli   || aoRow?.hp      || '',
+      kabupaten:              t._rw?.kota_tujuan  || aoRow?.kabupaten || '',
+      jumlah:                 t._rw?.produk       || aoRow?.jumlah  || '',
+      tanggal:                t._rw?.order_date   || aoRow?.tanggal || '',
+      ekspedisi:              t.ekspedisi         || t._rw?.ekspedisi || '',
+      status_resi:            t.status_resi,
+      status_resi_step:       t.status_resi_step,
+      status_resi_updated_at: t.status_resi_updated_at,
+      status_resi_detail:     t.status_resi_detail,
+      _rw:                    t._rw,
+    });
+
+    const matched = [
+      ...withName
+        .filter(t => (t._rw.cs_nama || '').toLowerCase() === myNama)
+        .map(t => mapItem(t, null)),
+      ...noName
+        .filter(t => {
+          const ao = noNameResiMap[t.resi];
+          return ao && (ao.cs || '').toLowerCase() === myNama;
+        })
+        .map(t => mapItem(t, noNameResiMap[t.resi])),
+    ];
+
+    bmAllData = matched;
+    await loadBmLogs(bmAllData.map(r => r.resi));
+
+    if (!bmAllData.length) {
+      if (cardsEl) cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Tidak ada resi bermasalah di bulan ini.</div>';
+      if (infoEl) infoEl.textContent = '0 resi bermasalah';
+      renderBmFollowupStats([]);
+      return;
+    }
+
+    if (infoEl) infoEl.textContent = `${bmAllData.length} resi bermasalah`;
+    renderBmFollowupStats(bmAllData);
+    applyBmFilter();
+  } catch(e) {
+    if (cardsEl) cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Gagal memuat data.</div>';
+    showToast('Gagal load: ' + e.message, 'error');
+  }
+}
+
+function renderBmFollowupStats(list) {
+  const wrap = document.getElementById('bm-followup-stats');
+  if (!wrap || !list.length) { if(wrap) wrap.style.display='none'; return; }
+  const counts = {};
+  FOLLOWUP_STAT_META.forEach(m => counts[m.key] = 0);
+  list.forEach(r => counts[trFollowupLevel(r)]++);
+  wrap.style.display = 'grid';
+  wrap.style.gridTemplateColumns = 'repeat(auto-fit,minmax(90px,1fr))';
+  wrap.style.gap = '6px';
+  wrap.innerHTML = FOLLOWUP_STAT_META.map(m => {
+    const active = bmFollowupFilter === m.key;
+    return `<div onclick="bmSetFollowupFilter('${m.key}')"
+      style="background:${active ? m.color : 'var(--surface)'};border:1.5px solid ${active ? m.color : 'var(--border)'};
+             border-radius:var(--radius);padding:8px 10px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow)">
+      <div style="font-size:9px;color:${active ? 'rgba(255,255,255,.75)' : 'var(--muted)'};text-transform:uppercase;
+                  letter-spacing:.4px;font-family:var(--mono);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+        ${m.label}
+      </div>
+      <div style="font-size:18px;font-weight:700;color:${active ? '#fff' : m.color};line-height:1">
+        ${counts[m.key] || '—'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function bmSetFollowupFilter(key) {
+  bmFollowupFilter = bmFollowupFilter === key ? null : key;
+  applyBmFilter();
+  renderBmFollowupStats(bmAllData);
+}
+
+function applyBmFilter() {
+  const eksF   = document.getElementById('bm-filter-eks')?.value || '';
+  const search = (document.getElementById('bm-search')?.value || '').toLowerCase();
+  let filtered = bmAllData.slice();
+  if (eksF)           filtered = filtered.filter(r => (r.ekspedisi || '').toUpperCase() === eksF.toUpperCase());
+  if (search)         filtered = filtered.filter(r =>
+    (r.nama    || '').toLowerCase().includes(search) ||
+    (r.hp      || '').includes(search)               ||
+    (r.resi    || '').toLowerCase().includes(search)
+  );
+  if (bmFollowupFilter) filtered = filtered.filter(r => trFollowupLevel(r) === bmFollowupFilter);
+  bmFilteredData = filtered;
+  renderBmCards(filtered);
+}
+
+function renderBmCards(list) {
+  const cardsEl = document.getElementById('bm-cards');
+  if (!cardsEl) return;
+  if (!list.length) {
+    cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Tidak ada resi bermasalah.</div>';
+    return;
+  }
+  trkAllData = bmAllData;
+  cardsEl.innerHTML = list.map(r => {
+    const eks       = r.ekspedisi || '—';
+    const hp08      = r.hp ? (r.hp.startsWith('0') ? r.hp : '0'+r.hp) : '—';
+    const fuBadge   = trFollowupBadge(r);
+    const masalah   = extractMasalah ? extractMasalah(r) : '';
+    const log       = bmLogMap[r.resi];
+    const resiSafe  = (r.resi || '').replace(/'/g, "\\'");
+    let logHtml = '';
+    if (log) {
+      const isTidak = log.type === 'tidak_balas';
+      const cls     = isTidak ? 'bm-log-badge-tidak' : 'bm-log-badge-sudah';
+      const icon    = isTidak ? '📵' : '💬';
+      let label = 'Sudah Balas';
+      if (isTidak) label = 'Tidak Balas';
+      else if (log.type === 'sudah_balas_antar_ulang') label = 'Balas · Antar Ulang';
+      else if (log.type === 'sudah_balas_cancel')      label = 'Balas · Cancel';
+      const thumb   = log.screenshot_url ? `<img src="${log.screenshot_url}" onclick="event.stopPropagation();window.open('${log.screenshot_url}','_blank')" />` : '';
+      const ts      = log.created_at ? new Date(log.created_at).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+      logHtml = `<div class="bm-log-badge ${cls}" onclick="event.stopPropagation();bmOpenLogModal('${resiSafe}')">${thumb}<span>${icon} ${label}${ts ? ' · '+ts : ''}</span></div>`;
+    } else {
+      logHtml = `<div class="bm-log-actions" onclick="event.stopPropagation()">
+        <button class="bm-log-btn bm-log-btn-tidak" onclick="bmOpenLogModal('${resiSafe}','tidak_balas')">📵 Tidak Balas</button>
+        <button class="bm-log-btn bm-log-btn-sudah"  onclick="bmOpenLogModal('${resiSafe}','sudah_balas')">💬 Sudah Balas</button>
+      </div>`;
+    }
+    return `
+    <div class="trk-card" onclick="trOpenDetail('${resiSafe}')">
+      <div class="trk-card-top">
+        <div>
+          <div class="trk-card-name">${r.nama || '—'}</div>
+          <div class="trk-card-sub">${hp08}</div>
+        </div>
+        <div class="trk-card-stage" style="background:var(--danger-light);color:var(--danger)">⚠️ Bermasalah</div>
+      </div>
+      ${masalah ? `<div style="font-size:11px;color:var(--danger);margin:4px 0;font-weight:600">${masalah}</div>` : ''}
+      <div class="trk-card-meta">
+        <span>📦 ${r.resi || 'Belum ada resi'}</span>
+        <span>🚚 ${eks}</span>
+        ${r.kabupaten ? `<span>📍 ${r.kabupaten}</span>` : ''}
+        <span>📅 ${r.tanggal || ''}</span>
+      </div>
+      ${fuBadge ? `<div style="margin-top:6px">${fuBadge}</div>` : ''}
+      ${logHtml}
+    </div>`;
+  }).join('');
+}
+
+// ── BM LOG: modal + save ─────────────────────────────────────────────────────
+let bmLogMap         = {};
+let bmLogResi        = null;
+let bmLogTypeVal     = null;
+let bmLogSsBlob      = null;
+let bmLogExistingUrl = null;
+
+async function loadBmLogs(resiList) {
+  bmLogMap = {};
+  if (!resiList.length) return;
+  const CHUNK = 500;
+  for (let i = 0; i < resiList.length; i += CHUNK) {
+    const chunk = resiList.slice(i, i + CHUNK);
+    try {
+      const { data } = await sbSS
+        .from('bermasalah_crm_log')
+        .select('resi,type,screenshot_url,catatan,created_at,cs_nama')
+        .in('resi', chunk)
+        .order('created_at', { ascending: false });
+      (data || []).forEach(row => {
+        if (!bmLogMap[row.resi]) bmLogMap[row.resi] = row;
+      });
+    } catch(_) {}
+  }
+}
+
+function bmOpenLogModal(resi, type) {
+  bmLogResi    = resi;
+  bmLogSsBlob  = null;
+  const modal   = document.getElementById('bm-log-modal');
+  const titleEl = document.getElementById('bm-log-modal-title');
+  const subEl   = document.getElementById('bm-log-modal-sub');
+  if (!modal) return;
+  const row = bmAllData.find(r => r.resi === resi);
+  titleEl.textContent = 'Respon Customer';
+  subEl.textContent   = (row?.nama || '') + (resi ? ' · ' + resi : '');
+  document.querySelectorAll('input[name="bm-log-type"]').forEach(el => el.checked = false);
+  document.getElementById('bm-log-type-tidak').classList.remove('selected-tidak','selected-sudah');
+  document.getElementById('bm-log-type-sudah').classList.remove('selected-tidak','selected-sudah');
+  document.getElementById('bm-log-catatan').value = '';
+  bmLogSsClear();
+  bmLogResetSub();
+
+  const existing = bmLogMap[resi];
+  const initType = type || (existing?.type) || null;
+  bmLogExistingUrl = null;
+
+  if (initType) {
+    const isSudahVariant = initType === 'sudah_balas' || initType === 'sudah_balas_antar_ulang' || initType === 'sudah_balas_cancel';
+    if (isSudahVariant) {
+      const radio = document.querySelector('input[name="bm-log-type"][value="sudah_balas"]');
+      if (radio) { radio.checked = true; bmLogApplyTypeStyle('sudah_balas'); }
+      document.getElementById('bm-log-sub-pilihan').style.display = 'block';
+      if (initType === 'sudah_balas_antar_ulang') {
+        const sub = document.querySelector('input[name="bm-log-sub"][value="antar_ulang"]');
+        if (sub) { sub.checked = true; bmLogSubChange(sub); }
+      } else if (initType === 'sudah_balas_cancel') {
+        const sub = document.querySelector('input[name="bm-log-sub"][value="cancel"]');
+        if (sub) { sub.checked = true; bmLogSubChange(sub); }
+      } else {
+        bmLogTypeVal = null;
+      }
+    } else {
+      const radio = document.querySelector(`input[name="bm-log-type"][value="${initType}"]`);
+      if (radio) { radio.checked = true; bmLogTypeVal = initType; bmLogApplyTypeStyle(initType); }
+    }
+    if (existing?.catatan) document.getElementById('bm-log-catatan').value = existing.catatan;
+  } else {
+    bmLogTypeVal = null;
+  }
+
+  if (existing?.screenshot_url) {
+    bmLogExistingUrl = existing.screenshot_url;
+    const img = document.getElementById('bm-log-ss-img');
+    img.src = existing.screenshot_url;
+    document.getElementById('bm-log-ss-preview').style.display = 'block';
+    document.getElementById('bm-log-ss-label').style.display   = 'none';
+    document.getElementById('bm-log-ss-change-btn').style.display = 'block';
+    const req = document.getElementById('bm-log-ss-required');
+    if (req) req.style.display = 'none';
+  } else {
+    const req = document.getElementById('bm-log-ss-required');
+    if (req) req.style.display = '';
+  }
+  modal.style.display = 'flex';
+}
+
+function bmCloseLogModal() {
+  document.getElementById('bm-log-modal').style.display = 'none';
+  bmLogResi        = null;
+  bmLogSsBlob      = null;
+  bmLogExistingUrl = null;
+  bmLogResetSub();
+}
+
+function bmLogResetSub() {
+  document.querySelectorAll('input[name="bm-log-sub"]').forEach(el => el.checked = false);
+  document.getElementById('bm-log-sub-pilihan').style.display = 'none';
+  document.getElementById('bm-log-sub-antar')?.classList.remove('selected-sudah');
+  document.getElementById('bm-log-sub-cancel')?.classList.remove('selected-cancel');
+}
+
+function bmLogTypeChange(radio) {
+  if (radio.value === 'sudah_balas') {
+    bmLogTypeVal = null;
+    bmLogResetSub();
+    document.getElementById('bm-log-sub-pilihan').style.display = 'block';
+  } else {
+    bmLogTypeVal = radio.value;
+    bmLogResetSub();
+  }
+  bmLogApplyTypeStyle(radio.value);
+}
+
+function bmLogSubChange(radio) {
+  bmLogTypeVal = 'sudah_balas_' + radio.value;
+  document.getElementById('bm-log-sub-antar').classList.remove('selected-sudah');
+  document.getElementById('bm-log-sub-cancel').classList.remove('selected-cancel');
+  if (radio.value === 'antar_ulang') document.getElementById('bm-log-sub-antar').classList.add('selected-sudah');
+  if (radio.value === 'cancel')      document.getElementById('bm-log-sub-cancel').classList.add('selected-cancel');
+}
+
+function bmLogApplyTypeStyle(type) {
+  const elTidak = document.getElementById('bm-log-type-tidak');
+  const elSudah = document.getElementById('bm-log-type-sudah');
+  elTidak.classList.remove('selected-tidak','selected-sudah');
+  elSudah.classList.remove('selected-tidak','selected-sudah');
+  if (type === 'tidak_balas') elTidak.classList.add('selected-tidak');
+  if (type === 'sudah_balas' || type?.startsWith('sudah_balas')) elSudah.classList.add('selected-sudah');
+}
+
+function bmLogSsPreview(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  bmLogSsBlob      = file;
+  bmLogExistingUrl = null;
+  const url = URL.createObjectURL(file);
+  const img  = document.getElementById('bm-log-ss-img');
+  img.src    = url;
+  document.getElementById('bm-log-ss-preview').style.display = 'block';
+  document.getElementById('bm-log-ss-label').style.display   = 'none';
+  document.getElementById('bm-log-ss-change-btn').style.display = 'none';
+}
+
+function bmLogSsClear() {
+  bmLogSsBlob      = null;
+  bmLogExistingUrl = null;
+  document.getElementById('bm-log-ss-input').value = '';
+  document.getElementById('bm-log-ss-preview').style.display = 'none';
+  document.getElementById('bm-log-ss-label').style.display   = 'flex';
+  document.getElementById('bm-log-ss-change-btn').style.display = 'none';
+  const img = document.getElementById('bm-log-ss-img');
+  if (img) { img.src = ''; URL.revokeObjectURL?.(img.src); }
+  const req = document.getElementById('bm-log-ss-required');
+  if (req) req.style.display = '';
+}
+
+function bmLogSsFullView() {
+  const img = document.getElementById('bm-log-ss-img');
+  if (img?.src) window.open(img.src, '_blank');
+}
+
+async function bmSaveLog() {
+  if (!bmLogResi)    { showToast('Resi tidak diketahui.', 'error'); return; }
+  if (!bmLogTypeVal) { showToast('Pilih status customer dulu' + (document.getElementById('bm-log-sub-pilihan')?.style.display !== 'none' ? ' (Antar Ulang / Cancel)' : '') + '.', 'error'); return; }
+  if (!bmLogSsBlob && !bmLogExistingUrl) { showToast('Upload screenshot bukti dulu.', 'error'); return; }
+
+  const btn = document.getElementById('bm-log-save-btn');
+  btn.disabled = true; btn.textContent = '⏳ Menyimpan...';
+
+  try {
+    let publicUrl = bmLogExistingUrl;
+    if (bmLogSsBlob) {
+      const ext  = bmLogSsBlob.type.includes('png') ? 'png' : 'jpg';
+      const path = `bermasalah/${bmLogResi}/${bmLogTypeVal}_${Date.now()}.${ext}`;
+      const { error: upErr } = await sbSS.storage.from(SS_BUCKET).upload(path, bmLogSsBlob, { upsert: true, contentType: bmLogSsBlob.type });
+      if (upErr) throw upErr;
+      publicUrl = sbSS.storage.from(SS_BUCKET).getPublicUrl(path).data.publicUrl;
+    }
+
+    const catatan = document.getElementById('bm-log-catatan').value.trim();
+    const { error: dbErr } = await sbSS.from('bermasalah_crm_log').upsert({
+      resi:           bmLogResi,
+      cs_id:          currentUser.id,
+      cs_nama:        currentProfile.nama || '',
+      type:           bmLogTypeVal,
+      screenshot_url: publicUrl,
+      catatan:        catatan || null,
+      created_at:     new Date().toISOString(),
+    }, { onConflict: 'resi' });
+    if (dbErr) throw dbErr;
+
+    // Sync ke room_work CRM Tracking
+    fetch('/api/bermasalah', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resi:           bmLogResi,
+        type:           bmLogTypeVal,
+        screenshot_url: publicUrl,
+        cs_nama:        currentProfile.nama || '',
+      }),
+    }).catch(() => {});
+
+    bmLogMap[bmLogResi] = {
+      resi:           bmLogResi,
+      type:           bmLogTypeVal,
+      screenshot_url: publicUrl,
+      catatan:        catatan || null,
+      cs_nama:        currentProfile.nama || '',
+      created_at:     new Date().toISOString(),
+    };
+    showToast('Respon customer tersimpan!', 'success');
+    bmCloseLogModal();
+    applyBmFilter();
+  } catch(e) {
+    showToast('Gagal simpan: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '💾 Simpan';
   }
 }
