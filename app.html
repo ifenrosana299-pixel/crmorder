@@ -39,6 +39,9 @@
     <div class="nav-item" id="nav-tracking" onclick="switchPage('tracking')">
       <span class="nav-icon">📦</span> Tracking Order
     </div>
+    <div class="nav-item" id="nav-bermasalah" onclick="switchPage('bermasalah')">
+      <span class="nav-icon">⚠️</span> Resi Bermasalah
+    </div>
     <div class="nav-item" id="nav-ongkir" onclick="switchPage('ongkir')">
       <span class="nav-icon">🚚</span> Cek Ongkir
     </div>
@@ -384,6 +387,39 @@ Keterangan: Bonus masker"></textarea>
   </div>
 
   <!-- ══════════════════════════════════════
+       PAGE: RESI BERMASALAH
+  ═══════════════════════════════════════ -->
+  <div class="page" id="page-bermasalah">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <div>
+        <div class="page-title" style="margin-bottom:2px">Resi Bermasalah</div>
+        <div class="page-sub" style="margin:0">Orderan kamu yang undell / gagal kirim</div>
+      </div>
+      <button onclick="loadBermasalah()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;color:var(--text)">🔄 Refresh</button>
+    </div>
+    <!-- Filter bar -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <input type="month" id="bm-filter-month" onchange="loadBermasalah()"
+        style="font-size:12px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);flex:1;min-width:140px">
+      <select id="bm-filter-eks" onchange="applyBmFilter()"
+        style="font-size:12px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);flex:1;min-width:120px">
+        <option value="">Semua Ekspedisi</option>
+        <option>JNE</option><option>J&T</option><option>SICEPAT</option>
+        <option>ANTERAJA</option><option>NINJA</option><option>SAP</option>
+        <option>LION</option><option>POS</option><option>IDEXPRESS</option><option>SPX</option>
+      </select>
+      <input id="bm-search" oninput="applyBmFilter()" placeholder="Cari nama / resi / HP..."
+        style="font-size:12px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);flex:2;min-width:160px">
+    </div>
+    <!-- Sub-filter FU -->
+    <div id="bm-followup-stats" style="display:none;margin-bottom:12px"></div>
+    <!-- Info -->
+    <div id="bm-info" style="font-size:11px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)"></div>
+    <!-- Cards -->
+    <div id="bm-cards" class="trk-cards"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
        PAGE: SETTING
   ═══════════════════════════════════════ -->
   <div class="page" id="page-setting">
@@ -523,18 +559,22 @@ Keterangan: Bonus masker"></textarea>
       <div class="sum-card tr-stat-clickable" id="trk-stat-ON_PROSES" onclick="trSetFilter('ON_PROSES_GROUP')">
         <div class="s-label">On Proses</div>
         <div class="s-value s-tunggu" id="trk-proses">—</div>
+        <div class="s-pct" id="trk-proses-pct"></div>
       </div>
       <div class="sum-card tr-stat-clickable" id="trk-stat-BERMASALAH" onclick="trSetFilter('BERMASALAH')">
         <div class="s-label">Undell</div>
         <div class="s-value" style="color:#d97706" id="trk-undell">—</div>
+        <div class="s-pct" id="trk-undell-pct"></div>
       </div>
       <div class="sum-card tr-stat-clickable" id="trk-stat-SAMPAI" onclick="trSetFilter('SAMPAI')">
         <div class="s-label">Delivered</div>
         <div class="s-value s-kirim" id="trk-delivered">—</div>
+        <div class="s-pct" id="trk-delivered-pct"></div>
       </div>
       <div class="sum-card tr-stat-clickable" id="trk-stat-RETUR" onclick="trSetFilter('RETUR')">
         <div class="s-label">Retur</div>
         <div class="s-value s-cancel" id="trk-retur">—</div>
+        <div class="s-pct" id="trk-retur-pct"></div>
       </div>
     </div>
 
@@ -653,6 +693,17 @@ Keterangan: Bonus masker"></textarea>
       <span class="bnav-label">Tracking</span>
     </button>
 
+    <button class="bnav-item" id="bnav-bermasalah" onclick="switchPage('bermasalah')">
+      <div class="bnav-icon-wrap">
+        <svg viewBox="0 0 24 24">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <span class="bnav-label">Undell</span>
+    </button>
+
     <button class="bnav-item" id="bnav-ongkir" onclick="switchPage('ongkir')">
       <div class="bnav-icon-wrap">
         <svg viewBox="0 0 24 24">
@@ -738,6 +789,71 @@ Keterangan: Bonus masker"></textarea>
     <div class="tr-modal-actions">
       <button class="btn-secondary" onclick="closeSSModal()">Tutup</button>
       <button class="btn-primary" id="ss-save-btn" onclick="ssSave()" style="width:auto;padding:10px 20px">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Log Resi Bermasalah -->
+<div class="tr-modal-overlay" id="bm-log-modal" style="display:none" onclick="if(event.target===this)bmCloseLogModal()">
+  <div class="tr-modal-box" style="max-width:420px">
+    <div class="tr-modal-head">
+      <div>
+        <div class="tr-modal-title" id="bm-log-modal-title">Respon Customer</div>
+        <div class="tr-modal-sub" id="bm-log-modal-sub"></div>
+      </div>
+      <button class="tr-modal-close" onclick="bmCloseLogModal()">✕</button>
+    </div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+      <!-- Pilih tipe -->
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">Status Customer</div>
+        <div style="display:flex;gap:8px">
+          <label class="bm-log-type-btn" id="bm-log-type-tidak">
+            <input type="radio" name="bm-log-type" value="tidak_balas" onchange="bmLogTypeChange(this)">
+            <span>📵 Tidak Balas</span>
+          </label>
+          <label class="bm-log-type-btn" id="bm-log-type-sudah">
+            <input type="radio" name="bm-log-type" value="sudah_balas" onchange="bmLogTypeChange(this)">
+            <span>💬 Sudah Balas</span>
+          </label>
+        </div>
+        <!-- Sub-pilihan Sudah Balas -->
+        <div id="bm-log-sub-pilihan" style="display:none;margin-top:10px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Customer minta:</div>
+          <div style="display:flex;gap:8px">
+            <label class="bm-log-type-btn" id="bm-log-sub-antar">
+              <input type="radio" name="bm-log-sub" value="antar_ulang" onchange="bmLogSubChange(this)">
+              <span>🔄 Antar Ulang</span>
+            </label>
+            <label class="bm-log-type-btn" id="bm-log-sub-cancel">
+              <input type="radio" name="bm-log-sub" value="cancel" onchange="bmLogSubChange(this)">
+              <span>❌ Cancel</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <!-- Upload screenshot -->
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">Screenshot Bukti <span id="bm-log-ss-required" style="color:var(--danger)">*</span></div>
+        <label id="bm-log-ss-label" style="display:flex;align-items:center;justify-content:center;gap:8px;border:2px dashed var(--border);border-radius:var(--radius-lg);padding:20px;cursor:pointer;font-size:13px;color:var(--muted);transition:border-color .15s;min-height:80px" onclick="document.getElementById('bm-log-ss-input').click()">
+          📎 Klik untuk upload screenshot
+        </label>
+        <input type="file" id="bm-log-ss-input" accept="image/*" style="display:none" onchange="bmLogSsPreview(this)">
+        <div id="bm-log-ss-preview" style="display:none;margin-top:8px;position:relative">
+          <img id="bm-log-ss-img" style="width:100%;border-radius:8px;max-height:180px;object-fit:cover;cursor:pointer" onclick="bmLogSsFullView()" />
+          <button onclick="bmLogSsClear()" title="Hapus foto" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center">✕</button>
+          <button id="bm-log-ss-change-btn" onclick="document.getElementById('bm-log-ss-input').click()" title="Ganti foto" style="display:none;position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:12px;padding:3px 10px;cursor:pointer;font-size:12px">🔄 Ganti Foto</button>
+        </div>
+      </div>
+      <!-- Catatan opsional -->
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Catatan <span style="font-weight:400;color:var(--muted)">(opsional)</span></div>
+        <textarea id="bm-log-catatan" rows="2" style="width:100%;border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-size:13px;font-family:var(--sans);color:var(--text);background:var(--bg);resize:none;box-sizing:border-box" placeholder="Misal: sudah dicoba 3x tidak ada respons..."></textarea>
+      </div>
+    </div>
+    <div class="tr-modal-actions">
+      <button class="btn-secondary" onclick="bmCloseLogModal()">Batal</button>
+      <button class="btn-primary" id="bm-log-save-btn" onclick="bmSaveLog()" style="width:auto;padding:10px 20px">💾 Simpan</button>
     </div>
   </div>
 </div>

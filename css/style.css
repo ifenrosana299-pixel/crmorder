@@ -135,6 +135,7 @@ body.app-body{display:flex;overflow-x:hidden}
 .s-kirim{color:var(--success)}
 .s-hold{color:var(--warn)}
 .s-cancel{color:var(--danger)}
+.sum-card .s-pct{font-size:11px;color:var(--muted);margin-top:2px;font-weight:500}
 
 /* ── TABLE (desktop) ── */
 .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow)}
@@ -480,6 +481,33 @@ tr.row-rts{background:var(--warn-light)!important}
 
 .trk-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:12px;align-items:start}
 .trk-grid .order-card{margin:0}
+
+/* ── RESI BERMASALAH CARDS ── */
+.trk-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}
+.trk-card{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--danger);border-radius:var(--radius-lg);padding:12px 14px;box-shadow:var(--shadow);cursor:pointer;transition:box-shadow .15s}
+.trk-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1)}
+.trk-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.trk-card-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.3}
+.trk-card-sub{font-size:12px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+.trk-card-stage{font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.trk-card-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.trk-card-meta span{font-size:11px;color:var(--muted);background:var(--bg);border-radius:6px;padding:2px 7px;white-space:nowrap}
+
+/* ── BM LOG BUTTONS & BADGES ── */
+.bm-log-actions{display:flex;gap:6px;margin-top:8px}
+.bm-log-btn{flex:1;border:none;border-radius:8px;padding:7px 6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font);transition:opacity .15s;white-space:nowrap}
+.bm-log-btn:hover{opacity:.8}
+.bm-log-btn-tidak{background:#fef2f2;color:#dc2626;border:1px solid #fca5a5}
+.bm-log-btn-sudah{background:#f0fdf4;color:#16a34a;border:1px solid #86efac}
+.bm-log-badge{display:flex;align-items:center;gap:6px;margin-top:8px;padding:7px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer}
+.bm-log-badge-tidak{background:#fef2f2;color:#dc2626;border:1px solid #fca5a5}
+.bm-log-badge-sudah{background:#f0fdf4;color:#16a34a;border:1px solid #86efac}
+.bm-log-badge img{width:32px;height:32px;border-radius:4px;object-fit:cover;flex-shrink:0}
+.bm-log-type-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:2px solid var(--border);border-radius:10px;padding:10px 8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);transition:all .15s;user-select:none}
+.bm-log-type-btn input{display:none}
+.bm-log-type-btn.selected-tidak{border-color:#dc2626;background:#fef2f2;color:#dc2626}
+.bm-log-type-btn.selected-sudah{border-color:#16a34a;background:#f0fdf4;color:#16a34a}
+.bm-log-type-btn.selected-cancel{border-color:#dc2626;background:#fef2f2;color:#dc2626}
 
 /* ── SS BUKTI ── */
 .btn-ss{font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;white-space:nowrap;font-family:var(--font);transition:opacity .15s}

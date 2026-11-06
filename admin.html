@@ -120,6 +120,9 @@
       </span>
       Tracking Resi
     </div>
+    <div class="nav-item" id="nav-bermasalah" onclick="switchPage('bermasalah')">
+      <span class="nav-icon">⚠️</span> Resi Bermasalah
+    </div>
 
     <div class="nav-item" id="nav-users" onclick="switchPage('users')">
       <span class="nav-icon">
@@ -828,6 +831,37 @@
     </div>
   </div>
 
+  <!-- ══ PAGE: RESI BERMASALAH ══ -->
+  <div id="page-bermasalah" class="page">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <div>
+        <div class="page-title" style="margin-bottom:2px">Resi Bermasalah</div>
+        <div class="page-sub" style="margin:0">Semua resi undell / gagal kirim per CRM</div>
+      </div>
+      <button onclick="loadAdminBermasalah()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;color:var(--text)">🔄 Refresh</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <input type="month" id="abm-filter-month" onchange="loadAdminBermasalah()"
+        style="font-size:12px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);flex:1;min-width:140px">
+      <select id="abm-filter-cs" onchange="applyAbmFilter()"
+        style="font-size:12px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);flex:1;min-width:130px">
+        <option value="">Semua CRM</option>
+      </select>
+      <select id="abm-filter-eks" onchange="applyAbmFilter()"
+        style="font-size:12px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);flex:1;min-width:120px">
+        <option value="">Semua Ekspedisi</option>
+        <option>JNE</option><option>J&T</option><option>SICEPAT</option>
+        <option>ANTERAJA</option><option>NINJA</option><option>SAP</option>
+        <option>LION</option><option>POS</option><option>IDEXPRESS</option><option>SPX</option>
+      </select>
+      <input id="abm-search" oninput="applyAbmFilter()" placeholder="Cari nama / resi / HP..."
+        style="font-size:12px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);flex:2;min-width:160px">
+    </div>
+    <div id="abm-followup-stats" style="display:none;margin-bottom:12px"></div>
+    <div id="abm-info" style="font-size:11px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)"></div>
+    <div id="abm-cards" class="trk-cards"></div>
+  </div>
+
   <!-- ══ PAGE: TRACKING ORDER CS ══ -->
   <div id="page-tracking" class="page">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
@@ -1194,12 +1228,12 @@ function resetTemplate() {
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
 function switchPage(name) {
-  ['overview','dashboard','rekap','analisis','produk','users','fonnte','sku','tracking','wilayahbaru','template','gudang'].forEach(p => {
+  ['overview','dashboard','rekap','analisis','produk','bermasalah','users','fonnte','sku','tracking','wilayahbaru','template','gudang'].forEach(p => {
     document.getElementById('page-'+p).classList.toggle('active', p===name);
     const nav = document.getElementById('nav-'+p);
     if (nav) nav.classList.toggle('active', p===name);
   });
-  const titles = { overview:'Overview', dashboard:'Dashboard Orderan', rekap:'Rekap CS', analisis:'Analisis Pembayaran', produk:'Analisis Produk', users:'Users', fonnte:'Fonnte / WA Sender', sku:'SKU Produk', tracking:'Tracking Order CS', wilayahbaru:'Wilayah Baru', template:'Template WA', gudang:'Gudang' };
+  const titles = { overview:'Overview', dashboard:'Dashboard Orderan', rekap:'Rekap CS', analisis:'Analisis Pembayaran', produk:'Analisis Produk', bermasalah:'Resi Bermasalah', users:'Users', fonnte:'Fonnte / WA Sender', sku:'SKU Produk', tracking:'Tracking Order CS', wilayahbaru:'Wilayah Baru', template:'Template WA', gudang:'Gudang' };
   document.getElementById('topbar-title').textContent = titles[name] || '';
   if (name === 'dashboard') {
     // Init drp ke hari ini kalau belum pernah dipilih
@@ -1217,6 +1251,7 @@ function switchPage(name) {
   if (name === 'fonnte')      loadFonnte();
   if (name === 'sku')         loadSku();
   if (name === 'tracking')    loadTracking();
+  if (name === 'bermasalah') loadAdminBermasalah();
   if (name === 'wilayahbaru') loadWilayahBaru();
   if (name === 'template')    loadTemplate();
   if (name === 'gudang')      loadGudangAdmin();
@@ -2976,7 +3011,7 @@ async function trFetchTrackingRows(masukList, range) {
   if (!hpList.length) return [];
   let q = sb.from('all_orderan')
     .select('no, tanggal, nama, hp, jumlah, pembayaran, resi, kabupaten, status_akhir')
-    .eq('sumber', 'cs_input')
+    .eq('sumber', 'crm')
     .in('hp', hpList)
     .limit(500);
   if (range?.start) q = q.gte('tanggal', range.start);
@@ -3030,7 +3065,7 @@ async function loadTracking() {
     while (true) {
       const { data: batch, error: batchErr } = await sb.from('all_orderan')
         .select('no, tanggal, nama, hp, jumlah, pembayaran, resi, kabupaten, status_akhir')
-        .eq('sumber', 'cs_input')
+        .eq('sumber', 'crm')
         .gte('tanggal', trkStart)
         .lte('tanggal', trkEnd)
         .order('tanggal', { ascending: false })
@@ -3077,7 +3112,7 @@ async function loadTracking() {
     });
 
     // Step 3.5: Isi resi yang kosong — cari di all_orderan by HP+tanggal (any sumber)
-    // Karena cs_input records di all_orderan punya resi='', tapi record lain (dari import)
+    // Karena crm records di all_orderan punya resi='', tapi record lain (dari import)
     // untuk HP yang sama bisa punya resi yang sudah diisi
     const emptyResiRows = rows.filter(r => !r.resi);
     if (emptyResiRows.length) {
@@ -3947,6 +3982,203 @@ function adashRender() {
       <td>${accBadge}</td>
       <td style="color:var(--muted);font-size:11px" title="${r.noted||''}">${(r.noted||'—').substring(0,30)}${(r.noted||'').length>30?'...':''}</td>
     </tr>`;
+  }).join('');
+}
+
+// ── RESI BERMASALAH (ADMIN) ───────────────────────────────────────────────────
+
+let abmAllData        = [];
+let abmFollowupFilter = null;
+let abmLogMap         = {};
+
+async function loadAbmLogs(resiList) {
+  abmLogMap = {};
+  if (!resiList.length) return;
+  const CHUNK = 500;
+  for (let i = 0; i < resiList.length; i += CHUNK) {
+    const chunk = resiList.slice(i, i + CHUNK);
+    try {
+      const { data } = await sbSS
+        .from('bermasalah_crm_log')
+        .select('resi,type,screenshot_url,catatan,created_at,cs_nama')
+        .in('resi', chunk)
+        .order('created_at', { ascending: false });
+      (data || []).forEach(row => {
+        if (!abmLogMap[row.resi]) abmLogMap[row.resi] = row;
+      });
+    } catch(_) {}
+  }
+}
+
+async function loadAdminBermasalah() {
+  const monthEl = document.getElementById('abm-filter-month');
+  if (monthEl && !monthEl.value) {
+    const now = new Date();
+    monthEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+  const [year, month] = (monthEl?.value || '').split('-');
+  const selectedMonth = `${year}-${month}`;
+  const cardsEl = document.getElementById('abm-cards');
+  const infoEl  = document.getElementById('abm-info');
+  if (cardsEl) cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Memuat data...</div>';
+  if (infoEl)  infoEl.textContent = '';
+  document.getElementById('abm-followup-stats').style.display = 'none';
+  try {
+    const bmResp = await fetch('/api/bermasalah');
+    if (!bmResp.ok) throw new Error('Gagal fetch /api/bermasalah');
+    const bmData = await bmResp.json();
+    abmAllData = bmData.filter(t => {
+      const dateCheck = (t._rw?.order_date || t.status_resi_updated_at || '').slice(0, 7);
+      return dateCheck === selectedMonth;
+    }).map(t => ({
+      resi:                   t.resi,
+      nama:                   t._rw?.nama_pembeli || '—',
+      hp:                     t._rw?.hp_pembeli   || '',
+      kabupaten:              t._rw?.kota_tujuan  || '',
+      jumlah:                 t._rw?.produk       || '',
+      tanggal:                t._rw?.order_date   || '',
+      ekspedisi:              t.ekspedisi         || t._rw?.ekspedisi || '',
+      cs_nama:                t._rw?.cs_nama      || '—',
+      status_resi:            t.status_resi,
+      status_resi_step:       t.status_resi_step,
+      status_resi_updated_at: t.status_resi_updated_at,
+      status_resi_detail:     t.status_resi_detail,
+      _rw:                    t._rw,
+    }));
+
+    if (!abmAllData.length) {
+      if (cardsEl) cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Tidak ada resi bermasalah di bulan ini.</div>';
+      if (infoEl) infoEl.textContent = '0 resi bermasalah';
+      abmRenderFollowupStats([]);
+      return;
+    }
+
+    const csNames = [...new Set(abmAllData.map(r => r.cs_nama).filter(n => n && n !== '—'))].sort();
+    const csSel = document.getElementById('abm-filter-cs');
+    const prevCs = csSel?.value || '';
+    if (csSel) {
+      csSel.innerHTML = '<option value="">Semua CRM</option>' +
+        csNames.map(n => `<option value="${n}" ${n===prevCs?'selected':''}>${n}</option>`).join('');
+    }
+
+    await loadAbmLogs(abmAllData.map(r => r.resi));
+    if (infoEl) infoEl.textContent = `${abmAllData.length} resi bermasalah`;
+    abmRenderFollowupStats(abmAllData);
+    applyAbmFilter();
+  } catch(e) {
+    if (cardsEl) cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Gagal memuat data.</div>';
+    showToast('Gagal: ' + e.message, 'error');
+  }
+}
+
+function abmRenderFollowupStats(list) {
+  const wrap = document.getElementById('abm-followup-stats');
+  if (!wrap || !list.length) { if(wrap) wrap.style.display='none'; return; }
+  const counts = {};
+  FOLLOWUP_STAT_META.forEach(m => counts[m.key] = 0);
+  list.forEach(r => counts[trFollowupLevel(r)]++);
+  wrap.style.display = 'grid';
+  wrap.style.gridTemplateColumns = 'repeat(auto-fit,minmax(90px,1fr))';
+  wrap.style.gap = '6px';
+  wrap.innerHTML = FOLLOWUP_STAT_META.map(m => {
+    const active = abmFollowupFilter === m.key;
+    return `<div onclick="abmSetFollowupFilter('${m.key}')"
+      style="background:${active?m.color:'var(--surface)'};border:1.5px solid ${active?m.color:'var(--border)'};
+             border-radius:var(--radius);padding:8px 10px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow)">
+      <div style="font-size:9px;color:${active?'rgba(255,255,255,.75)':'var(--muted)'};text-transform:uppercase;
+                  letter-spacing:.4px;font-family:var(--mono);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.label}</div>
+      <div style="font-size:18px;font-weight:700;color:${active?'#fff':m.color};line-height:1">${counts[m.key]||'—'}</div>
+    </div>`;
+  }).join('');
+}
+
+function abmSetFollowupFilter(key) {
+  abmFollowupFilter = abmFollowupFilter === key ? null : key;
+  abmRenderFollowupStats(abmAllData);
+  applyAbmFilter();
+}
+
+function applyAbmFilter() {
+  const csF    = document.getElementById('abm-filter-cs')?.value  || '';
+  const eksF   = document.getElementById('abm-filter-eks')?.value || '';
+  const search = (document.getElementById('abm-search')?.value || '').toLowerCase();
+  let filtered = abmAllData.slice();
+  if (csF)    filtered = filtered.filter(r => r.cs_nama === csF);
+  if (eksF)   filtered = filtered.filter(r => (r.ekspedisi||'').toUpperCase() === eksF.toUpperCase());
+  if (search) filtered = filtered.filter(r =>
+    (r.nama    ||'').toLowerCase().includes(search) ||
+    (r.hp      ||'').includes(search)               ||
+    (r.resi    ||'').toLowerCase().includes(search)
+  );
+  if (abmFollowupFilter) filtered = filtered.filter(r => trFollowupLevel(r) === abmFollowupFilter);
+  trkAllData = abmAllData;
+  renderAbmCards(filtered);
+  document.getElementById('abm-info').textContent =
+    filtered.length < abmAllData.length
+      ? `${filtered.length} dari ${abmAllData.length} resi bermasalah`
+      : `${abmAllData.length} resi bermasalah`;
+}
+
+function renderAbmCards(list) {
+  const cardsEl = document.getElementById('abm-cards');
+  if (!cardsEl) return;
+  if (!list.length) {
+    cardsEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px;grid-column:1/-1">Tidak ada resi bermasalah.</div>';
+    return;
+  }
+  cardsEl.innerHTML = list.map(r => {
+    const eks      = r.ekspedisi || '—';
+    const hp08     = r.hp ? (r.hp.startsWith('0') ? r.hp : '0'+r.hp) : '—';
+    const fuBadge  = trFollowupBadge(r);
+    const log      = abmLogMap[r.resi];
+    const resiSafe = (r.resi || '').replace(/'/g, "\\'");
+    let logHtml = '';
+    if (log) {
+      const isTidak = log.type === 'tidak_balas';
+      const cls     = isTidak ? 'bm-log-badge-tidak' : 'bm-log-badge-sudah';
+      const icon    = isTidak ? '📵' : '💬';
+      const label   = isTidak ? 'Tidak Balas' : 'Sudah Balas';
+      const ts      = log.created_at
+        ? new Date(log.created_at).toLocaleString('id-ID', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
+        : '';
+      const byCs    = log.cs_nama ? ` · ${log.cs_nama}` : '';
+      const thumb   = log.screenshot_url
+        ? `<img src="${log.screenshot_url}" style="width:36px;height:36px;border-radius:5px;object-fit:cover;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation();window.open('${log.screenshot_url}','_blank')" />`
+        : '';
+      const catatan = log.catatan ? `<div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic">"${log.catatan}"</div>` : '';
+      logHtml = `
+        <div class="bm-log-badge ${cls}" style="cursor:default;flex-direction:column;align-items:flex-start;gap:4px" onclick="event.stopPropagation()">
+          <div style="display:flex;align-items:center;gap:6px;width:100%">
+            ${thumb}
+            <div>
+              <div style="font-weight:700">${icon} ${label}${byCs}</div>
+              <div style="font-size:10px;font-weight:400;opacity:.75">${ts}</div>
+            </div>
+          </div>
+          ${catatan}
+        </div>`;
+    } else {
+      logHtml = `<div style="margin-top:8px;font-size:11px;color:var(--muted);font-style:italic">Belum ada respon dari CRM</div>`;
+    }
+    return `
+    <div class="trk-card" onclick="trOpenDetail('${resiSafe}')">
+      <div class="trk-card-top">
+        <div>
+          <div class="trk-card-name">${r.nama||'—'}</div>
+          <div class="trk-card-sub">${hp08}</div>
+        </div>
+        <div class="trk-card-stage" style="background:var(--danger-light);color:var(--danger)">⚠️ Bermasalah</div>
+      </div>
+      <div class="trk-card-meta">
+        <span>📦 ${r.resi||'Belum ada resi'}</span>
+        <span>🚚 ${eks}</span>
+        ${r.kabupaten ? `<span>📍 ${r.kabupaten}</span>` : ''}
+        <span>📅 ${r.tanggal||''}</span>
+        <span>👤 ${r.cs_nama||'—'}</span>
+      </div>
+      ${fuBadge ? `<div style="margin-top:6px">${fuBadge}</div>` : ''}
+      ${logHtml}
+    </div>`;
   }).join('');
 }
 </script>
