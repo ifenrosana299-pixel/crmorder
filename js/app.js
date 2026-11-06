@@ -1042,13 +1042,14 @@ async function getSkuList() {
 
 function parseSKUFromNama(nama) {
   // Format bisa:
-  //   "BUDI|YOU1"           → kode: YOU, qty: 1
-  //   "BUDI|YOU 2"          → kode: YOU, qty: 2
-  //   "ADI|RO BAJ 1|R1"    → skip RO, kode: BAJ, qty: 1
-  //   "ADI|RO YOU 2|R3|TF" → skip RO, kode: YOU, qty: 2
+  //   "BUDI|YOU1"                    → kode: YOU, qty: 1
+  //   "BUDI|YOU 2"                   → kode: YOU, qty: 2
+  //   "ADI|RO BAJ 1|R1"             → skip RO, kode: BAJ, qty: 1
+  //   "ADI|RO YOU 2|R3|TF"          → skip RO, kode: YOU, qty: 2
+  //   "ADI|RO BAJ 1+TEH 1|R1"      → utama: BAJ 1, bonus: TEH 1
+  //   "ADI|RO BAJ 1 + TEH 1|R1"    → utama: BAJ 1, bonus: TEH 1
   if (!nama || !nama.includes('|')) return null;
 
-  // Cek semua segment setelah | pertama, cari yang cocok pola SKU
   const segments = nama.split('|').slice(1); // buang nama customer
   for (let seg of segments) {
     let s = seg.trim().toUpperCase();
@@ -1057,10 +1058,23 @@ function parseSKUFromNama(nama) {
     s = s.replace(/^RO\s+/, '');
     // Skip segment yang cuma tag: TF, TRANSFER, R1, R2, R3, dst
     if (/^(TF|TRANSFER|R\d+)$/i.test(s)) continue;
-    // Match pola SKU: KODE + optional QTY
-    const match = s.match(/^([A-Z]+)\s*(\d*)$/);
-    if (match) {
-      return { kode: match[1], qty: parseInt(match[2] || '1', 10) || 1, raw: seg.trim().toUpperCase() };
+
+    // Cek apakah ada bonus (format: SKU QTY + BONUS_SKU QTY)
+    const plusParts = s.split(/\s*\+\s*/);
+    const items = [];
+    let valid = true;
+    for (const part of plusParts) {
+      const m = part.trim().match(/^([A-Z]+)\s*(\d*)$/);
+      if (!m) { valid = false; break; }
+      items.push({ kode: m[1], qty: parseInt(m[2] || '1', 10) || 1 });
+    }
+    if (valid && items.length > 0) {
+      return {
+        kode: items[0].kode,
+        qty: items[0].qty,
+        bonus: items.length > 1 ? items.slice(1) : [],
+        raw: seg.trim().toUpperCase()
+      };
     }
   }
   return null;
@@ -1072,7 +1086,7 @@ async function validateSKU() {
   const ketVal  = (document.getElementById('f-keterangan')?.value || '').trim();
 
   // Reset hints
-  ['nama','jumlah','keterangan'].forEach(id => {
+  ['nama','jumlah','keterangan','quantity'].forEach(id => {
     const el   = document.getElementById('f-' + id);
     const hint = document.getElementById('hint-' + id);
     if (el)   el.classList.remove('val-ok','val-err','val-warn');
@@ -1090,7 +1104,22 @@ async function validateSKU() {
     return;
   }
 
-  valSetField('nama', 'ok', `✓ ${skuRecord.nama_produk} × ${parsed.qty}`);
+  // Cek bonus SKU juga dikenali
+  let bonusRecords = [];
+  if (parsed.bonus && parsed.bonus.length > 0) {
+    for (const b of parsed.bonus) {
+      const bRecord = skuList.find(s => s.kode.toUpperCase() === b.kode);
+      if (!bRecord) {
+        valSetField('nama', 'err', `⚠ Bonus SKU "${b.kode}" tidak dikenali`);
+        return;
+      }
+      bonusRecords.push({ ...b, record: bRecord });
+    }
+    const bonusStr = bonusRecords.map(b => `+ ${b.record.nama_produk} × ${b.qty}`).join(' ');
+    valSetField('nama', 'ok', `✓ ${skuRecord.nama_produk} × ${parsed.qty} ${bonusStr}`);
+  } else {
+    valSetField('nama', 'ok', `✓ ${skuRecord.nama_produk} × ${parsed.qty}`);
+  }
 
   const produkNorm = skuRecord.nama_produk.toUpperCase();
   const keywords   = produkNorm.split(/\s+/).filter(w => w.length >= 3);
@@ -1098,9 +1127,11 @@ async function validateSKU() {
   // ── Cek qty SKU vs field QTY ──────────────────────────────────────────────
   const qtyField = parseInt((document.getElementById('f-quantity')?.value || '').trim(), 10);
   if (qtyField && qtyField !== parsed.qty) {
-    valSetField('nama', 'warn',
-      `⚠ SKU qty ${parsed.qty} tapi QTY field ${qtyField} — pastikan yang benar`
+    valSetField('quantity', 'warn',
+      `⚠ Qty (${qtyField}) tidak cocok dengan SKU produk utama (${parsed.qty})`
     );
+  } else if (qtyField) {
+    valSetField('quantity', 'ok', `✓ Qty ${qtyField}`);
   }
 
   // ── Cek jumlah pesanan ────────────────────────────────────────────────────
@@ -1124,13 +1155,14 @@ async function validateSKU() {
   // ── Cek keterangan ────────────────────────────────────────────────────────
   if (ketVal) {
     const ketUp     = ketVal.toUpperCase();
-    const prodMatch = keywords.some(w => ketUp.includes(w));
+    const problems  = [];
 
+    // --- Cek produk utama ---
+    const prodMatch = keywords.some(w => ketUp.includes(w));
     if (!prodMatch) {
-      valSetField('keterangan', 'err', `⚠ Produk "${skuRecord.nama_produk}" tidak ditemukan di keterangan`);
+      problems.push(`Produk "${skuRecord.nama_produk}" tidak ditemukan`);
     } else {
-      // Cari angka setelah keyword produk — format: "YOUZHI 1 CS LATHIFAH"
-      // Ambil angka yang muncul setelah salah satu keyword
+      // Cek qty produk utama
       let qtyKet = null;
       for (const kw of keywords) {
         const idx = ketUp.indexOf(kw);
@@ -1139,12 +1171,41 @@ async function validateSKU() {
         const m = after.match(/^[\s\w]*?(\d+)/);
         if (m) { qtyKet = parseInt(m[1], 10); break; }
       }
-
       if (qtyKet !== null && qtyKet !== parsed.qty) {
-        valSetField('keterangan', 'warn', `⚠ Qty di keterangan (${qtyKet}) tidak cocok dengan SKU (${parsed.qty})`);
-      } else {
-        valSetField('keterangan', 'ok');
+        problems.push(`Qty "${skuRecord.nama_produk}" di keterangan (${qtyKet}) tidak cocok dengan SKU (${parsed.qty})`);
       }
+    }
+
+    // --- Cek bonus ---
+    if (bonusRecords.length > 0) {
+      for (const b of bonusRecords) {
+        const bNorm = b.record.nama_produk.toUpperCase();
+        const bKeywords = bNorm.split(/\s+/).filter(w => w.length >= 3);
+        const bMatch = bKeywords.some(w => ketUp.includes(w));
+        if (!bMatch) {
+          problems.push(`Bonus "${b.record.nama_produk}" tidak ditemukan`);
+        } else {
+          // Cek qty bonus
+          let qtyBonus = null;
+          for (const kw of bKeywords) {
+            const idx = ketUp.indexOf(kw);
+            if (idx === -1) continue;
+            const after = ketUp.slice(idx + kw.length).trim();
+            const m = after.match(/^[\s\w]*?(\d+)/);
+            if (m) { qtyBonus = parseInt(m[1], 10); break; }
+          }
+          if (qtyBonus !== null && qtyBonus !== b.qty) {
+            problems.push(`Qty bonus "${b.record.nama_produk}" di keterangan (${qtyBonus}) tidak cocok dengan SKU (${b.qty})`);
+          }
+        }
+      }
+    }
+
+    if (problems.length > 0) {
+      const level = problems.some(p => p.includes('tidak ditemukan')) ? 'err' : 'warn';
+      valSetField('keterangan', level, '⚠ ' + problems.join('; '));
+    } else {
+      valSetField('keterangan', 'ok');
     }
   }
 }
@@ -1645,7 +1706,7 @@ document.getElementById('f-hp')?.addEventListener('input', scheduleGradeCheck);
   const el = document.getElementById(id);
   if (el) el.addEventListener('input', scheduleOngkirCheck);
 });
-['f-nama','f-jumlah','f-keterangan'].forEach(id => {
+['f-nama','f-jumlah','f-keterangan','f-quantity'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('input', () => validateSKU());
 });
@@ -1701,6 +1762,7 @@ const SUBMIT_CHECK_FIELDS = [
   { id: 'pembayaran',   label: 'Pembayaran' },
   { id: 'rincian',      label: 'Rincian Pembayaran' },
   { id: 'total',        label: 'Total Pembayaran' },
+  { id: 'quantity',     label: 'Qty' },
   { id: 'keterangan',   label: 'Keterangan' },
   { id: 'instruksi',    label: 'Instruksi Pengiriman' },
 ];
