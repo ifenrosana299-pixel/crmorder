@@ -793,6 +793,7 @@ async function doParse() {
     validateEkspedisi();
     validateRincian();
     validateSKU();
+    validateInstruksi();
     validateReceiverScore();
     validateOngkirTarif();
 
