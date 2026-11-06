@@ -1041,13 +1041,29 @@ async function getSkuList() {
 }
 
 function parseSKUFromNama(nama) {
-  // Format: "BUDI|YOU1" atau "BUDI|YOU 1" → { kode: 'YOU', qty: 1 }
+  // Format bisa:
+  //   "BUDI|YOU1"           → kode: YOU, qty: 1
+  //   "BUDI|YOU 2"          → kode: YOU, qty: 2
+  //   "ADI|RO BAJ 1|R1"    → skip RO, kode: BAJ, qty: 1
+  //   "ADI|RO YOU 2|R3|TF" → skip RO, kode: YOU, qty: 2
   if (!nama || !nama.includes('|')) return null;
-  const skuRaw = nama.split('|')[1]?.trim().toUpperCase() || '';
-  if (!skuRaw) return null;
-  const match = skuRaw.match(/^([A-Z]+)\s*(\d*)$/);
-  if (!match) return null;
-  return { kode: match[1], qty: parseInt(match[2] || '1', 10) || 1, raw: skuRaw };
+
+  // Cek semua segment setelah | pertama, cari yang cocok pola SKU
+  const segments = nama.split('|').slice(1); // buang nama customer
+  for (let seg of segments) {
+    let s = seg.trim().toUpperCase();
+    if (!s) continue;
+    // Skip prefix RO (Repeat Order) kalau ada
+    s = s.replace(/^RO\s+/, '');
+    // Skip segment yang cuma tag: TF, TRANSFER, R1, R2, R3, dst
+    if (/^(TF|TRANSFER|R\d+)$/i.test(s)) continue;
+    // Match pola SKU: KODE + optional QTY
+    const match = s.match(/^([A-Z]+)\s*(\d*)$/);
+    if (match) {
+      return { kode: match[1], qty: parseInt(match[2] || '1', 10) || 1, raw: seg.trim().toUpperCase() };
+    }
+  }
+  return null;
 }
 
 async function validateSKU() {
