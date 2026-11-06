@@ -1350,12 +1350,16 @@ function validateRincian() {
   if (!rincianVal || !totalVal) return;
 
   const parts = rincianVal.split('|').map(s => parseInt(s.trim(), 10));
-  if (![5, 6].includes(parts.length) || parts.some(isNaN)) {
-    valSetField('rincian', 'err', '⚠ Format harus: ongkir|pot.ongkir|admin|pot.admin|harga atau ongkir|pot.ongkir|admin|pot.admin|harga|pot.produk');
+  if (parts.length < 5 || parts.length > 6 || parts.some(isNaN)) {
+    valSetField('rincian', 'err', '⚠ Format harus: ongkir|pot.ongkir|admin|pot.admin|harga|pot.produk (6 bagian)');
+    return;
+  }
+  if (parts.length === 5) {
+    valSetField('rincian', 'err', '⚠ Rincian harus 6 bagian — pot.produk belum diisi. Format: ongkir|pot.ongkir|admin|pot.admin|harga|pot.produk');
     return;
   }
 
-  const [ongkir, potOngkir, admin, potAdmin, harga, potProduk = 0] = parts;
+  const [ongkir, potOngkir, admin, potAdmin, harga, potProduk] = parts;
   const totalHitung = harga - potProduk + ongkir - potOngkir + admin - potAdmin;
   const totalInput  = parseInt(totalVal.replace(/\D/g, ''), 10);
 
