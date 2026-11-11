@@ -524,3 +524,8 @@ tr.row-rts{background:var(--warn-light)!important}
 .ss-pick-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--accent-light);color:var(--accent);border:1.5px dashed var(--accent);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s;width:fit-content}
 .ss-pick-btn:hover{background:var(--accent);color:#fff}
 .ss-locked-notice{padding:10px 14px;background:var(--danger-light);color:var(--danger);border-radius:8px;font-size:13px;font-weight:600}
+
+/* ── List CS chips ── */
+.cs-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--accent-light);color:var(--text);border-radius:20px;font-size:13px;font-weight:500;border:1px solid var(--border)}
+.cs-chip-del{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 2px;line-height:1;transition:color .15s}
+.cs-chip-del:hover{color:#ef4444}
