@@ -9,6 +9,7 @@ let currentUser   = null;
 let currentProfile = null;
 let parsedData    = null;   // hasil AI parsing
 let todayOrders   = [];     // orderan hari ini milik CS ini
+let csListCache   = [];     // cache list CS untuk validasi
 
 // ── GUDANG ────────────────────────────────────────────────────────────────────
 let gudangList    = [];
@@ -235,6 +236,7 @@ function drpNav(dir) {
   await loadHistoryMini();
   checkAndShowLockBanner();
   loadWaTemplate(); // fire and forget — template WA bermasalah
+  loadCsList();     // fire and forget — list CS untuk validasi
 
   // Handle redirect balik dari Google OAuth (gmail=success/error/cancelled)
   const qp = new URLSearchParams(window.location.search);
@@ -257,7 +259,7 @@ function drpNav(dir) {
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
 function switchPage(name) {
-  ['dashboard','upload','tracking','bermasalah','setting','ongkir'].forEach(p => {
+  ['dashboard','upload','tracking','bermasalah','setting','ongkir','listcs'].forEach(p => {
     document.getElementById('page-'+p).classList.toggle('active', p===name);
     // Sidebar nav (desktop)
     const navEl = document.getElementById('nav-'+p);
@@ -266,13 +268,14 @@ function switchPage(name) {
     const bnavEl = document.getElementById('bnav-'+p);
     if (bnavEl) bnavEl.classList.toggle('active', p===name);
   });
-  const titles = { dashboard:'Dashboard', upload:'Upload Order', tracking:'Tracking Order', bermasalah:'Resi Bermasalah', setting:'Setting', ongkir:'Cek Ongkir' };
+  const titles = { dashboard:'Dashboard', upload:'Upload Order', tracking:'Tracking Order', bermasalah:'Resi Bermasalah', setting:'Setting', ongkir:'Cek Ongkir', listcs:'List CS' };
   document.getElementById('topbar-title').textContent = titles[name] || '';
   if (name === 'dashboard')  loadDashboard();
   if (name === 'upload')     { loadHistoryMini(); checkAndShowLockBanner(); }
   if (name === 'tracking')   loadTracking();
   if (name === 'bermasalah') loadBermasalah();
   if (name === 'setting')    loadSetting();
+  if (name === 'listcs')     loadCsList();
 }
 
 // ── DARK MODE ────────────────────────────────────────────────────────────────
@@ -1237,18 +1240,32 @@ function validateInstruksi() {
 
   if (!csInstruksi || !csKeterangan) return; // salah satu tidak ada pola "CS xxx" → skip
 
+  // Cross-check instruksi vs keterangan
   if (csInstruksi !== csKeterangan) {
     valSetField('instruksi', 'warn',
       `⚠ Nama CS berbeda — instruksi: "${csInstruksi}" vs keterangan: "${csKeterangan}"`);
-    // Keterangan juga dikasih warning, tapi jangan timpa error dari validateSKU
     const elKet = document.getElementById('f-keterangan');
     if (elKet && !elKet.classList.contains('val-err')) {
       valSetField('keterangan', 'warn',
         `⚠ Nama CS berbeda — keterangan: "${csKeterangan}" vs instruksi: "${csInstruksi}"`);
     }
-  } else {
-    valSetField('instruksi', 'ok', `✓ CS ${csInstruksi}`);
+    return;
   }
+
+  // Validasi terhadap List CS (jika list tidak kosong)
+  if (csListCache.length > 0) {
+    const listNames = csListCache.map(c => c.nama_cs.toUpperCase());
+    if (!listNames.includes(csInstruksi)) {
+      valSetField('instruksi', 'err', `⚠ CS "${csInstruksi}" tidak terdaftar di List CS`);
+      const elKet = document.getElementById('f-keterangan');
+      if (elKet && !elKet.classList.contains('val-err')) {
+        valSetField('keterangan', 'err', `⚠ CS "${csKeterangan}" tidak terdaftar di List CS`);
+      }
+      return;
+    }
+  }
+
+  valSetField('instruksi', 'ok', `✓ CS ${csInstruksi}`);
 }
 
 // ── VALIDASI EKSPEDISI (No Order vs Pembayaran) ───────────────────────────────
@@ -4013,5 +4030,87 @@ async function bmSaveLog() {
     showToast('Gagal simpan: ' + e.message, 'error');
   } finally {
     btn.disabled = false; btn.textContent = '💾 Simpan';
+  }
+}
+
+// ── LIST CS ──────────────────────────────────────────────────────────────────
+async function loadCsList() {
+  if (!currentUser) return;
+  try {
+    const { data, error } = await sb.from('crm_cs_list')
+      .select('*')
+      .eq('crm_id', currentUser.id)
+      .order('nama_cs', { ascending: true });
+    if (error) throw error;
+    csListCache = data || [];
+  } catch(_) {
+    csListCache = [];
+  }
+  renderCsList();
+}
+
+function renderCsList() {
+  const wrap = document.getElementById('listcs-list');
+  const countEl = document.getElementById('listcs-count');
+  if (!wrap) return;
+  if (countEl) countEl.textContent = `${csListCache.length} CS`;
+
+  if (!csListCache.length) {
+    wrap.innerHTML = '<span style="font-size:13px;color:var(--muted)">Belum ada CS. Tambahkan nama CS di atas.</span>';
+    return;
+  }
+
+  wrap.innerHTML = csListCache.map(c => `
+    <div class="cs-chip" id="cs-chip-${c.id}">
+      <span>${c.nama_cs}</span>
+      <button class="cs-chip-del" onclick="deleteCsFromList(${c.id})" title="Hapus">&times;</button>
+    </div>
+  `).join('');
+}
+
+async function addCsToList() {
+  const input = document.getElementById('listcs-nama');
+  const status = document.getElementById('listcs-add-status');
+  const nama = (input?.value || '').trim();
+  if (!nama) { showToast('Nama CS wajib diisi', 'error'); return; }
+
+  // Cek duplikat di cache
+  if (csListCache.some(c => c.nama_cs.toUpperCase() === nama.toUpperCase())) {
+    showToast(`CS "${nama}" sudah ada di list`, 'error');
+    return;
+  }
+
+  status.style.display = 'inline';
+  status.textContent = 'Menyimpan...';
+  status.style.color = 'var(--muted)';
+
+  try {
+    const { error } = await sb.from('crm_cs_list').insert({
+      crm_id: currentUser.id,
+      nama_cs: nama
+    });
+    if (error) throw error;
+    status.textContent = '✓ Tersimpan';
+    status.style.color = '#22c55e';
+    input.value = '';
+    await loadCsList();
+    // Re-validate instruksi jika sedang ada input
+    validateInstruksi();
+  } catch(e) {
+    status.textContent = '✗ Gagal: ' + e.message;
+    status.style.color = '#ef4444';
+  }
+  setTimeout(() => { status.style.display = 'none'; }, 3000);
+}
+
+async function deleteCsFromList(id) {
+  if (!confirm('Hapus CS ini dari list?')) return;
+  try {
+    const { error } = await sb.from('crm_cs_list').delete().eq('id', id);
+    if (error) throw error;
+    await loadCsList();
+    validateInstruksi();
+  } catch(e) {
+    showToast('Gagal hapus: ' + e.message, 'error');
   }
 }
