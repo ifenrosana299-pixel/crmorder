@@ -1214,11 +1214,23 @@ async function validateSKU() {
   }
 }
 
-// ── VALIDASI INSTRUKSI vs KETERANGAN (nama CS harus cocok) ──────────────────
-// Extract nama CS dari teks — pola: "CS NAMA" (case insensitive)
+// ── VALIDASI INSTRUKSI vs KETERANGAN (nama CS) ──────────────────────────────
+// Cari nama CS dari List CS di dalam teks (case insensitive, word boundary)
+function findCsInText(text) {
+  if (!text || !csListCache.length) return null;
+  const upper = text.toUpperCase();
+  for (const c of csListCache) {
+    const name = c.nama_cs.toUpperCase();
+    // Escape regex special chars, lalu cek word boundary
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp('\\b' + escaped + '\\b', 'i').test(upper)) return name;
+  }
+  return null;
+}
+
+// Fallback: extract pola "CS NAMA" kalau list kosong
 function extractCSName(text) {
   if (!text) return null;
-  // Cari pola "CS <nama>" — ambil kata setelah "CS "
   const m = text.match(/\bCS\s+([A-Za-z]+)/i);
   return m ? m[1].toUpperCase() : null;
 }
@@ -1235,12 +1247,46 @@ function validateInstruksi() {
 
   if (!instrVal || !ketVal) return;
 
+  // ── Kalau List CS ada isinya → validasi pakai nama dari list ──
+  if (csListCache.length > 0) {
+    const csInstr = findCsInText(instrVal);
+    const csKet   = findCsInText(ketVal);
+
+    // Instruksi: nama tidak ada di list → merah
+    if (!csInstr) {
+      valSetField('instruksi', 'err', '⚠ Nama CS tidak ditemukan di List CS');
+    }
+    // Keterangan: nama tidak ada di list → merah (jangan timpa error SKU)
+    if (!csKet) {
+      const elKet = document.getElementById('f-keterangan');
+      if (elKet && !elKet.classList.contains('val-err')) {
+        valSetField('keterangan', 'err', '⚠ Nama CS tidak ditemukan di List CS');
+      }
+    }
+
+    // Keduanya ketemu tapi beda nama → warning
+    if (csInstr && csKet && csInstr !== csKet) {
+      valSetField('instruksi', 'warn',
+        `⚠ Nama CS berbeda — instruksi: "${csInstr}" vs keterangan: "${csKet}"`);
+      const elKet = document.getElementById('f-keterangan');
+      if (elKet && !elKet.classList.contains('val-err')) {
+        valSetField('keterangan', 'warn',
+          `⚠ Nama CS berbeda — keterangan: "${csKet}" vs instruksi: "${csInstr}"`);
+      }
+    }
+
+    // Keduanya ketemu dan sama → OK
+    if (csInstr && csKet && csInstr === csKet) {
+      valSetField('instruksi', 'ok', `✓ CS ${csInstr}`);
+    }
+    return;
+  }
+
+  // ── Fallback kalau List CS kosong → cross-check pola "CS NAMA" ──
   const csInstruksi  = extractCSName(instrVal);
   const csKeterangan = extractCSName(ketVal);
+  if (!csInstruksi || !csKeterangan) return;
 
-  if (!csInstruksi || !csKeterangan) return; // salah satu tidak ada pola "CS xxx" → skip
-
-  // Cross-check instruksi vs keterangan
   if (csInstruksi !== csKeterangan) {
     valSetField('instruksi', 'warn',
       `⚠ Nama CS berbeda — instruksi: "${csInstruksi}" vs keterangan: "${csKeterangan}"`);
@@ -1249,23 +1295,9 @@ function validateInstruksi() {
       valSetField('keterangan', 'warn',
         `⚠ Nama CS berbeda — keterangan: "${csKeterangan}" vs instruksi: "${csInstruksi}"`);
     }
-    return;
+  } else {
+    valSetField('instruksi', 'ok', `✓ CS ${csInstruksi}`);
   }
-
-  // Validasi terhadap List CS (jika list tidak kosong)
-  if (csListCache.length > 0) {
-    const listNames = csListCache.map(c => c.nama_cs.toUpperCase());
-    if (!listNames.includes(csInstruksi)) {
-      valSetField('instruksi', 'err', `⚠ CS "${csInstruksi}" tidak terdaftar di List CS`);
-      const elKet = document.getElementById('f-keterangan');
-      if (elKet && !elKet.classList.contains('val-err')) {
-        valSetField('keterangan', 'err', `⚠ CS "${csKeterangan}" tidak terdaftar di List CS`);
-      }
-      return;
-    }
-  }
-
-  valSetField('instruksi', 'ok', `✓ CS ${csInstruksi}`);
 }
 
 // ── VALIDASI EKSPEDISI (No Order vs Pembayaran) ───────────────────────────────
