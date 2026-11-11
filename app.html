@@ -45,6 +45,9 @@
     <div class="nav-item" id="nav-ongkir" onclick="switchPage('ongkir')">
       <span class="nav-icon">🚚</span> Cek Ongkir
     </div>
+    <div class="nav-item" id="nav-listcs" onclick="switchPage('listcs')">
+      <span class="nav-icon">👥</span> List CS
+    </div>
     <div class="nav-section">Akun</div>
     <div class="nav-item" id="nav-setting" onclick="switchPage('setting')">
       <span class="nav-icon">⚙️</span> Setting
@@ -653,6 +656,45 @@ Keterangan: Bonus masker"></textarea>
     </div>
   </div>
 
+  <!-- ══════════════════════════════════════
+       PAGE: LIST CS
+  ═══════════════════════════════════════ -->
+  <div class="page" id="page-listcs">
+    <div class="page-title">List CS</div>
+    <div class="page-sub">Daftar nama CS untuk validasi di Instruksi Pengiriman &amp; Keterangan. Nama yang tidak ada di list akan ditandai merah.</div>
+
+    <div class="card">
+      <div class="card-title">Tambah CS</div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div class="f-group" style="flex:1">
+          <label class="f-label">Nama CS</label>
+          <input class="f-input" id="listcs-nama" placeholder="cth: Rahma" onkeydown="if(event.key==='Enter')addCsToList()" />
+        </div>
+        <button class="btn-parse" onclick="addCsToList()" style="height:40px;white-space:nowrap">+ Tambah</button>
+      </div>
+      <span id="listcs-add-status" style="font-size:12px;display:none;margin-top:6px"></span>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:13px;font-weight:700">CS Terdaftar</span>
+        <span style="font-size:12px;color:var(--muted)" id="listcs-count">0 CS</span>
+      </div>
+      <div id="listcs-list" style="display:flex;flex-wrap:wrap;gap:8px">
+        <span style="font-size:13px;color:var(--muted)">Memuat...</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;background:var(--surface);border:1px dashed var(--border)">
+      <strong style="font-size:12px">Cara kerja:</strong>
+      <p style="font-size:12px;color:var(--muted);margin:4px 0 0">
+        Tambahkan nama-nama CS yang biasa muncul di Instruksi Pengiriman dan Keterangan (pola "CS NAMA").
+        Saat input order, jika nama CS <strong>tidak ada</strong> di list ini, field akan ditandai <span style="color:#ef4444;font-weight:600">merah</span> sebagai warning.
+        Jika list kosong, validasi ini dilewati.
+      </p>
+    </div>
+  </div>
+
 </div><!-- end main-area -->
 
 <!-- ── BOTTOM NAV (mobile) ── -->
@@ -713,6 +755,18 @@ Keterangan: Bonus masker"></textarea>
         </svg>
       </div>
       <span class="bnav-label">Ongkir</span>
+    </button>
+
+    <button class="bnav-item" id="bnav-listcs" onclick="switchPage('listcs')">
+      <div class="bnav-icon-wrap">
+        <svg viewBox="0 0 24 24">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <span class="bnav-label">List CS</span>
     </button>
 
     <button class="bnav-item" id="bnav-setting" onclick="switchPage('setting')">
