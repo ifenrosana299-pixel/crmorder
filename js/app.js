@@ -2730,18 +2730,26 @@ function todayStr() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // format YYYY-MM-DD WIB
 }
 
-// ── CUTOFF JAM 08.00 WIB ──────────────────────────────────────────────────────
-// 00:00–07:59 → tanggal = kemarin, bisa upload
-// 08:00–08:59 → LOCKED
+// ── CUTOFF JAM 07.31–08.59 WIB ───────────────────────────────────────────────
+// 00:00–07:30 → tanggal = kemarin, bisa upload
+// 07:31–08:59 → LOCKED
 // 09:00+      → tanggal = hari ini, bisa upload
+function getWIBTime() {
+  const now = new Date();
+  const hour = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta', hour: 'numeric', hour12: false }), 10);
+  const minute = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta', minute: 'numeric' }), 10);
+  return { hour, minute };
+}
+
 function getWIBHour() {
-  return parseInt(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta', hour: 'numeric', hour12: false }), 10);
+  return getWIBTime().hour;
 }
 
 function getOrderDate() {
-  const hour = getWIBHour();
-  if (hour < 8) {
-    // Sebelum jam 8 → tanggal kemarin
+  const { hour, minute } = getWIBTime();
+  const beforeCutoff = hour < 7 || (hour === 7 && minute < 31);
+  if (beforeCutoff) {
+    // Sebelum jam 07:31 → tanggal kemarin
     const d = new Date();
     d.setDate(d.getDate() - 1);
     return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
@@ -2750,8 +2758,8 @@ function getOrderDate() {
 }
 
 function checkUploadLock() {
-  const hour = getWIBHour();
-  return hour === 8; // jam 08:00–08:59 = locked
+  const { hour, minute } = getWIBTime();
+  return (hour === 7 && minute >= 31) || hour === 8; // jam 07:31–08:59 = locked
 }
 
 // Beda dari checkUploadLock (yang cuma ngunci 08:00–08:59 lalu kebuka lagi jam 9 buat siklus
